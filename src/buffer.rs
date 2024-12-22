@@ -22,19 +22,19 @@ fn get_nano_seconds() -> u128 {
 #[derive(Debug, Clone, Copy, PartialEq)]
 struct TraceHeader {
     id: u32,
-    tid: u64,
+    tid: std::thread::ThreadId,
     start_gtime: u64,
     total_flushed: u32,
 }
 
 impl TraceHeader {
 
-    fn new(id: u32, tid: u64, start_gtime: u64) -> Self
+    fn new(id: u32, tid: &std::thread::ThreadId, start_gtime: &std::time::Duration) -> Self
     {
         Self {
             id,
-            tid,
-            start_gtime,
+            tid: *tid,
+            start_gtime: start_gtime.as_secs() ,
             total_flushed: 0
         }
     }
@@ -85,10 +85,13 @@ struct BufferInfo {
 impl BufferInfo {
     const MAX_ENTRIES: usize = (1024 * 1024 + EventEntry::bytes() - 1) / EventEntry::bytes();
 
-    fn new(id: u32, tid: u64, start_gtime: u64) -> Self
-    {
+    fn new(
+        id: u32,
+        tid: &std::thread::ThreadId,
+        start_gtime: &std::time::Duration
+    ) -> Self {
         Self {
-            header: TraceHeader::new(id, tid, start_gtime),
+            header: TraceHeader::new(id, &tid, &start_gtime),
             entries: Vec::<EventEntry>::with_capacity(Self::MAX_ENTRIES)
         }
     }
@@ -179,22 +182,30 @@ impl BufferInfo {
 
 }
 
-struct Buffer {
+pub struct Buffer {
     path: std::path::PathBuf,
     file: Option<std::fs::File>,
     info: BufferInfo,
-
 }
 
 impl Buffer {
 
-    fn new(id: u32, tid: u64, path: std::path::PathBuf, start_gtime: u64) -> Self
-    {
+    pub fn new(
+        id: u32,
+        tid: &std::thread::ThreadId,
+        path: std::path::PathBuf,
+        start_gtime: &std::time::Duration
+    ) -> Self {
         Self {
             path,
             file: None,
-            info: BufferInfo::new(id, tid, start_gtime)
+            info: BufferInfo::new(id, &tid, &start_gtime)
         }
+    }
+
+    pub fn id(&self) -> u32
+    {
+        self.info.header.id
     }
 
     fn from_file(path: std::path::PathBuf) -> Self
@@ -252,7 +263,11 @@ mod profiler{
     #[test]
     fn bufferinfo_construct()
     {
-        let mut info = BufferInfo::new(1, 2, 0);
+        let mut info = BufferInfo::new(
+            1,
+            &std::thread::current().id(),
+            &std::time::Duration::default()
+        );
 
         info.emplace_event(1, 1);
         info.emplace_event(1, 2);
@@ -266,7 +281,11 @@ mod profiler{
         let path = std::path::PathBuf::from_str("/tmp/bufferinfo_serialize").unwrap();
 
         // Create a buffer with 6 entries
-        let mut info = BufferInfo::new(1, 2, 0);
+        let mut info = BufferInfo::new(
+            1,
+            &std::thread::current().id(),
+            &std::time::Duration::default()
+        );
 
         info.emplace_event(1, 1);
         info.emplace_event(2, 7);
@@ -296,7 +315,12 @@ mod profiler{
     {
         let path = std::path::PathBuf::from_str("/tmp/buffer_construct_destruct").unwrap();
 
-        let mut buff = Buffer::new(1, 2, path.clone(), 0);
+        let mut buff = Buffer::new(
+            1,
+            &std::thread::current().id(),
+            path.clone(),
+            &std::time::Duration::default()
+        );
 
         buff.emplace_event(1, 1);
 
@@ -312,7 +336,12 @@ mod profiler{
     {
         let path = std::path::PathBuf::from_str("/tmp/buffer_construct_destruct_empty").unwrap();
 
-        let buff = Buffer::new(1, 2, path.clone(), 0);
+        let buff = Buffer::new(
+            1,
+            &std::thread::current().id(),
+            path.clone(),
+            &std::time::Duration::default()
+        );
 
         // Assert that the file is NOT created
         drop(buff);
@@ -326,7 +355,12 @@ mod profiler{
         let path = std::path::PathBuf::from_str("/tmp/buffer_serialize").unwrap();
 
         // Create a buffer with 6 entries
-        let mut buff = Buffer::new(1, 2, path.clone(), 0);
+        let mut buff = Buffer::new(
+            1,
+            &std::thread::current().id(),
+            path.clone(),
+            &std::time::Duration::default()
+        );
 
         buff.emplace_event(1, 1);
         buff.emplace_event(2, 7);
@@ -362,7 +396,12 @@ mod profiler{
         let path = std::path::PathBuf::from_str("/tmp/buffer_serialize_multi").unwrap();
 
         { // Create a buffer with 6 entries in 3 steps
-            let mut buff = Buffer::new(1, 2, path.clone(), 0);
+            let mut buff = Buffer::new(
+                1,
+                &std::thread::current().id(),
+                path.clone(),
+                &std::time::Duration::default()
+            );
 
             buff.emplace_event(0, 1);
             buff.emplace_event(1, 2);
