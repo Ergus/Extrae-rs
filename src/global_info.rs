@@ -53,13 +53,7 @@ impl GlobalInfo {
     // Borrow static immutable
     pub fn get_info() -> &'static GlobalInfo {
         unsafe {
-            match INFO {
-                Some(ref global_info) => &global_info,
-                None => {
-                    INFO = Some(GlobalInfo::new());
-                    INFO.as_ref().unwrap()
-                }
-            }
+            INFO.get_or_insert_with(|| GlobalInfo::new())
         }
     }
 
@@ -67,13 +61,7 @@ impl GlobalInfo {
     pub fn get_buffer(tid: std::thread::ThreadId) -> crate::buffer::Buffer
     {
         unsafe {
-            match INFO {
-                Some(ref mut global_info) => global_info.buffer_set.get_buffer(tid),
-                None => {
-                    INFO = Some(GlobalInfo::new());
-                    INFO.as_mut().unwrap().buffer_set.get_buffer(tid)
-                }
-            }
+            INFO.get_or_insert_with(|| GlobalInfo::new()).buffer_set.get_buffer(tid)
         }
     }
 }
