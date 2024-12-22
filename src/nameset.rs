@@ -48,7 +48,7 @@ impl NameEntry {
     }
 }
 
-struct NameSet {
+pub struct NameSet {
     counter: u16,
     names_event_map: Arc<RwLock<BTreeMap<u16, NameEntry>>>,
 }
@@ -58,7 +58,7 @@ impl NameSet {
     const  MAX_USER_EVENT: u16 = u16::MAX / 2;
     const  MAX_EVENT: u16 = u16::MAX;
 
-    fn new() -> Self
+    pub fn new() -> Self
     {
         Self {
             counter: Self::MAX_USER_EVENT,
@@ -66,7 +66,7 @@ impl NameSet {
         }
     }
 
-    fn register_event_name(
+    pub fn register_event_name(
         &mut self,
         event_name: &str,
         file_name: &str,
@@ -109,7 +109,14 @@ impl NameSet {
         event_ref
     }
 
-    fn register_value_name(
+    pub fn register_event_name_internal (
+        &mut self,
+        event_name: &str
+    ) -> u16 {
+        self.register_event_name(event_name, "profiler", 0, 0)
+    }
+
+    pub fn register_value_name(
         &mut self,
         value_name: &str,
         file_name: &str,
@@ -145,7 +152,7 @@ impl NameSet {
         }
     }
 
-    fn create_pcf(&self, trace_dir: &std::path::Path) -> std::io::Result<()>
+    pub fn create_pcf(&self, trace_dir: &std::path::Path) -> std::io::Result<()>
     {
         let file = std::fs::File::create(trace_dir.join("Trace.pcf")).unwrap();
         let mut writer = std::io::BufWriter::new(file);
