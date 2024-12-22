@@ -208,6 +208,12 @@ impl Buffer {
         self.info.header.id
     }
 
+    pub fn tid(&self) -> std::thread::ThreadId
+    {
+        self.info.header.tid
+    }
+
+
     fn from_file(path: std::path::PathBuf) -> Self
     {
         let mut file = std::fs::File::open(&path).unwrap();
