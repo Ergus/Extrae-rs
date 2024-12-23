@@ -79,14 +79,14 @@ impl GlobalInfo {
     }
 
     // This requires mutable access to the variable.
-    pub(crate) fn save_buffer(mut buffer: crate::buffer::Buffer)
+    pub(crate) fn save_buffer_id(mut buffer: crate::buffer::Buffer)
     {
         buffer.flush().expect("Failed to flush buffer to file");
         unsafe {
             let remaining_threads = INFO.as_mut()
-                .expect("Global info not set when called save_buffer")
+                .expect("Global info not set when called save_buffer_id")
                 .buffer_set
-                .save_buffer(buffer);
+                .save_buffer_id(&buffer);
 
             // remaining_threads is zero when the main thread exits,
             // so it is the last and we can exit.

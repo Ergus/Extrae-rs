@@ -24,7 +24,7 @@ impl ThreadInfo {
 impl Drop for ThreadInfo {
     fn drop(&mut self) {
         unsafe {
-            GlobalInfo::save_buffer(ManuallyDrop::take(&mut self.buffer_events));
+            GlobalInfo::save_buffer_id(ManuallyDrop::take(&mut self.buffer_events));
         }
     }
 }

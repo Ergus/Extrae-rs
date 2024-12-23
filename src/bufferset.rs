@@ -23,7 +23,7 @@ use crate::buffer;
 /// are destructed after the main thread; but in MSWindows the Global
 /// variables seems to be removed before the main thread completes.
 pub struct BufferSet {
-    events_map: Arc<RwLock<HashMap<ThreadId, buffer::Buffer>>>,
+    events_map: Arc<RwLock<HashMap<ThreadId, u32>>>,
     thread_counter: atomic::AtomicU32,
     thread_running: atomic::AtomicU32,
 
@@ -46,77 +46,72 @@ impl BufferSet {
         }
     }
 
-    /// Get the Buffer_t associated with a thread id hash
+    /// Create a Buffer_t associated with a thread id hash
     ///
-    /// The threadIds are usually reused after a thread is destroyed.
-    /// Opening/closing files on every thread creation/deletion may be
-    /// too expensive; especially if the threads are created destroyed
-    /// very frequently.
+    /// The threadIds sometimes are reused after a thread is destroyed.
     ///
-    /// We keep the associative map <tid, Buffer> in order to reuse
-    /// Buffer and only execute IO operations when the buffer is full
-    /// or at the end of the execution.
+    /// We keep the associative map <tid, id> in order to reuse Buffer
+    /// ids.
     ///
-    /// The extra cost for this is that we need to take a lock once
-    /// (on thread construction or when emitting the first event from
-    /// a thread) in order to get it's associated buffer.  This
+    /// The extra cost for this is that we need to take a read lock
+    /// once (on thread construction or when emitting the first event
+    /// from a thread) in order to get it's associated buffer.  This
     /// function is responsible to take the lock and return the
-    /// associated buffer.  When a threadId is seen for a first time
-    /// this function creates the new entry in the map, construct the
-    /// Buffer and assign an ordinal id for it.  Any optimization here
-    /// will be very welcome.
+    /// associated buffer id.  When a threadId is seen for a first
+    /// time this function creates the new id in the map, but won't
+    /// modifies the map, only the atomic threads counter is
+    /// increased.
+    /// The map only adds new values on thread destruction to "remember"
+    /// in the future if it sees the same thread id again.
     pub fn get_buffer(&mut self, tid: std::thread::ThreadId) -> buffer::Buffer
     {
-        // We attempt to take the read lock first. If this tid was
-        // already used then we need to take the write lock
-        // temporarily to extract it.
-        // Otherwise no look is needed at all and we can create a new
-        // buffer lock-free
-        let contains =
-            self.events_map
+        // We attempt to take the read lock only to check if the id
+        // exists and release it immediately.  The thread counted
+        // needs to be atomic because it is modified with the read
+        // lock taken (not the write)
+        let id: u32 = {
+            match self.events_map
                 .read()
                 .expect("Failed to get events_map read lock")
-                .contains_key(&tid);
+                .get(&tid) {
+                    Some(&value) => value,
+                    None => self.thread_counter.fetch_add(1, atomic::Ordering::Relaxed) + 1,
+                }
+        };
 
-        if contains {
-            // Get write lock and extract with the least possible
-            // contention,
-            self.events_map
-                .write()
-                .expect("Failed to get events_map read lock")
-                .remove(&tid)
-                .unwrap()
+        self.thread_running.fetch_add(1, atomic::Ordering::Relaxed);
 
-        } else {
+        let filename = self
+            .trace_directory_path
+            .join(format!("Trace_{}", id));
 
-            let counter = self.thread_counter.fetch_add(1, atomic::Ordering::Relaxed);
-            self.thread_running.fetch_add(1, atomic::Ordering::Relaxed);
-
-            let filename = self
-                .trace_directory_path
-                .join(format!("Trace_{}", counter + 1));
-
-            buffer::Buffer::new(
-                counter + 1,
-                &tid,
-                filename,
-                &self.start_system_time
-            )
-        }
+        buffer::Buffer::new(
+            id,
+            &tid,
+            filename,
+            &self.start_system_time
+        )
     }
 
-    /// When a thread is destroyed it's buffer is saved back to the
-    /// buffer set in order to avoid creation and destruction too
+    /// When a thread is destroyed it's buffer id is saved back to the
+    /// buffer set in order to avoid creation and destructions too
     /// often.
-    pub fn save_buffer(&mut self, buffer: buffer::Buffer) -> u32
+    /// If the thread id was already used, then this function basically
+    /// does nothing, but confirm that the tid and the id it contains
+    /// are the same of the incoming buffer.
+    /// This function takes the write lock as the most frequent action
+    /// is to register new ids.
+    pub fn save_buffer_id(&mut self, buffer: &buffer::Buffer) -> u32
     {
         match self.events_map
             .write()
             .expect("Failed to get events_map lock")
             .entry(buffer.tid()) {
-                Entry::Occupied(_) => panic!("Error reinserting buffer for existing tid"),
+                Entry::Occupied(entry) => {
+                    assert_eq!(entry.get(), &buffer.id());
+                },
                 Entry::Vacant(entry) => {
-                    entry.insert(buffer);
+                    entry.insert(buffer.id());
                     self.thread_running.fetch_sub(1, atomic::Ordering::Relaxed);
                 }
             };
