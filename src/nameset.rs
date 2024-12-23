@@ -49,6 +49,8 @@ impl NameEntry {
 }
 
 pub struct NameSet {
+    // This is a normal counter because we only change it with the
+    // write lock taken
     counter: u16,
     names_event_map: Arc<RwLock<BTreeMap<u16, NameEntry>>>,
 }
@@ -81,6 +83,8 @@ impl NameSet {
 
         let value = NameEntry::new(real_name.as_str(), file_name, line);
 
+        let mut maplock = self.names_event_map.write().expect("Failed to get name_set lock");
+
         let mut event_ref: u16 =
             if event == u16::default() {
                 self.counter += 1;
@@ -88,8 +92,6 @@ impl NameSet {
             } else {
                 event
             };
-
-        let mut maplock = self.names_event_map.write().expect("Failed to get name_set lock");
 
         match maplock.entry(event_ref) {
             Entry::Vacant(entry) => {entry.insert(value);},

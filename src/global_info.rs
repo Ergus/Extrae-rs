@@ -1,7 +1,5 @@
 #![allow(dead_code)]
 
-use std::sync::{LazyLock,RwLock};
-
 pub struct GlobalInfo {
 
     pub buffer_set: crate::bufferset::BufferSet,
@@ -34,10 +32,6 @@ impl GlobalInfo {
 
         let thread_event_id = name_set.register_event_name_internal("ThreadRuning");
 
-        // crate::thread_info::ThreadInfo::emplace_event(
-        //     thread_event_id, 1);
-
-
         Self {
             buffer_set,
             name_set,
@@ -47,12 +41,9 @@ impl GlobalInfo {
 
     fn finalize(&self) {
 
-        assert_eq!(self.buffer_set.thread_running, 0);
+        //assert_eq!(self.buffer_set.thread_running, 0);
 
-        println!("Executing global destructor");
-
-        // crate::thread_info::ThreadInfo::emplace_event(
-        //     self.thread_event_id, 0);
+        println!("Finalizing profiler");
 
         let output_path = self.buffer_set.trace_directory_path.as_path();
 
@@ -63,32 +54,43 @@ impl GlobalInfo {
             .create_pcf(output_path)
             .expect("Error creating PCF file");
 
-	//std::cout << "# Profiler TraceDir: " << traceDirectory << std::endl;
-
-
+        println!("# Profiler TraceDir: {}", output_path.to_str().unwrap());
     }
 
 }
 
-//static mut INFO: Option<GlobalInfo> = None;
-
-static INFO: LazyLock<RwLock<GlobalInfo>>
- = LazyLock::new(|| { RwLock::new(GlobalInfo::new())});
+// Here I will use an option in order to allow lazy initialization.
+// This will force me to use unsafe code, but at leats I won't need to
+// have a global Mutex for every access to the global information.
+// The internal functions already have a lock when needed.
+static mut INFO: Option<GlobalInfo> = None;
 
 impl GlobalInfo {
 
+    /// Get a buffer for this thread.
+    /// The buffer may be created now or maybe recovered from a
+    /// previous save.
     // This requires mutable access to the variable.
     pub(crate) fn get_buffer(tid: std::thread::ThreadId) -> crate::buffer::Buffer
     {
-        INFO.write().unwrap().buffer_set.get_buffer(tid)
+        unsafe {
+            INFO.get_or_insert_with(|| GlobalInfo::new()).buffer_set.get_buffer(tid)
+        }
     }
 
     // This requires mutable access to the variable.
     pub(crate) fn save_buffer(mut buffer: crate::buffer::Buffer)
     {
         buffer.flush().expect("Failed to flush buffer to file");
-        if INFO.write().unwrap().buffer_set.save_buffer(buffer) == 0 {
-            INFO.read().unwrap().finalize();
+        unsafe {
+            let remaining_threads = INFO.as_mut()
+                .expect("Global info not set when called save_buffer")
+                .buffer_set
+                .save_buffer(buffer);
+
+            if remaining_threads == 0 {
+                INFO.as_ref().unwrap().finalize();
+            }
         }
     }
 
@@ -98,9 +100,11 @@ impl GlobalInfo {
         line: u32,
         event: u16
     ) {
-        INFO.write().unwrap()
-            .name_set
-            .register_event_name(event_name, file_name, line, event);
+        unsafe {
+            INFO.get_or_insert_with(|| GlobalInfo::new())
+                .name_set
+                .register_event_name(event_name, file_name, line, event);
+        }
     }
 }
 

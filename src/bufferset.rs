@@ -1,9 +1,11 @@
 #![allow(dead_code)]
 
 use std::io::Write;
+use std::sync::{Arc, RwLock};
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 use std::thread::ThreadId;
+use std::sync::atomic;
 
 use crate::buffer;
 
@@ -21,10 +23,10 @@ use crate::buffer;
 /// are destructed after the main thread; but in MSWindows the Global
 /// variables seems to be removed before the main thread completes.
 pub struct BufferSet {
-    events_map: HashMap<ThreadId, buffer::Buffer>,
-    thread_counter: u32,
+    events_map: Arc<RwLock<HashMap<ThreadId, buffer::Buffer>>>,
+    thread_counter: atomic::AtomicU32,
+    thread_running: atomic::AtomicU32,
 
-    pub(crate) thread_running: u32,
     pub(crate) start_system_time: std::time::Duration,
     pub(crate) trace_directory_path: std::path::PathBuf,
 }
@@ -36,9 +38,9 @@ impl BufferSet {
         trace_directory_path: std::path::PathBuf
     ) -> Self {
         Self {
-            events_map: HashMap::new(),
-            thread_counter: 0,
-            thread_running: 0,
+            events_map: Arc::new(RwLock::new(HashMap::new())),
+            thread_counter: atomic::AtomicU32::new(0),
+            thread_running: atomic::AtomicU32::new(0),
             start_system_time,
             trace_directory_path
         }
@@ -65,24 +67,41 @@ impl BufferSet {
     /// will be very welcome.
     pub fn get_buffer(&mut self, tid: std::thread::ThreadId) -> buffer::Buffer
     {
-        match self.events_map.entry(tid) {
-            Entry::Occupied(entry) => entry.remove(),
-            Entry::Vacant(_) => {
+        // We attempt to take the read lock first. If this tid was
+        // already used then we need to take the write lock
+        // temporarily to extract it.
+        // Otherwise no look is needed at all and we can create a new
+        // buffer lock-free
+        let contains =
+            self.events_map
+                .read()
+                .expect("Failed to get events_map read lock")
+                .contains_key(&tid);
 
-                self.thread_counter += 1;
-                self.thread_running += 1;
+        if contains {
+            // Get write lock and extract with the least possible
+            // contention,
+            self.events_map
+                .write()
+                .expect("Failed to get events_map read lock")
+                .remove(&tid)
+                .unwrap()
 
-                let filename = self
-                    .trace_directory_path
-                    .join(format!("Trace_{}", self.thread_counter));
+        } else {
 
-                buffer::Buffer::new(
-                    self.thread_counter,
-                    &tid,
-                    filename,
-                    &self.start_system_time
-                )
-            }
+            let counter = self.thread_counter.fetch_add(1, atomic::Ordering::Relaxed);
+            self.thread_running.fetch_add(1, atomic::Ordering::Relaxed);
+
+            let filename = self
+                .trace_directory_path
+                .join(format!("Trace_{}", counter + 1));
+
+            buffer::Buffer::new(
+                counter + 1,
+                &tid,
+                filename,
+                &self.start_system_time
+            )
         }
     }
 
@@ -91,15 +110,18 @@ impl BufferSet {
     /// often.
     pub fn save_buffer(&mut self, buffer: buffer::Buffer) -> u32
     {
-        match self.events_map.entry(buffer.tid()) {
-            Entry::Occupied(_) => panic!("Error reinserting buffer for existing tid"),
-            Entry::Vacant(entry) => {
-                entry.insert(buffer);
-                self.thread_running -= 1;
-            }
-        }
+        match self.events_map
+            .write()
+            .expect("Failed to get events_map lock")
+            .entry(buffer.tid()) {
+                Entry::Occupied(_) => panic!("Error reinserting buffer for existing tid"),
+                Entry::Vacant(entry) => {
+                    entry.insert(buffer);
+                    self.thread_running.fetch_sub(1, atomic::Ordering::Relaxed);
+                }
+            };
 
-        self.thread_running
+        self.thread_running.load(atomic::Ordering::Relaxed)
     }
 
     /// Write the trace.row file on exit.
@@ -118,7 +140,7 @@ impl BufferSet {
             }
         };
 
-        let nthreads = self.thread_counter - 1;
+        let nthreads = self.thread_counter.load(atomic::Ordering::Relaxed);
 
         let rowfile = std::fs::File::create(trace_dir.join("Trace.row")).unwrap();
         let mut writer = std::io::BufWriter::new(rowfile);
