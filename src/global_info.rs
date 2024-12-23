@@ -88,6 +88,8 @@ impl GlobalInfo {
                 .buffer_set
                 .save_buffer(buffer);
 
+            // remaining_threads is zero when the main thread exits,
+            // so it is the last and we can exit.
             if remaining_threads == 0 {
                 INFO.as_ref().unwrap().finalize();
             }

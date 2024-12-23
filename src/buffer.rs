@@ -74,6 +74,15 @@ impl EventEntry {
     {
         std::mem::size_of::<Self>()
     }
+
+    fn as_line(&self, thread: u32) -> String
+    {
+        // 2:cpu:appl:task:thread:time:event:value
+        format!("2:{}:{}:{}:{}:{}:{}:{}",
+            self.core, 1, 1, thread, self.time, self.id, self.value)
+
+    }
+
 }
 
 #[derive(Debug, Clone, PartialEq)]
