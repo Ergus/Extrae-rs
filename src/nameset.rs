@@ -12,11 +12,11 @@ use std::collections::btree_map::Entry;
 struct NameInfo {
     name: String,
     path: std::path::PathBuf,
-    line: usize
+    line: u32
 }
 
 impl NameInfo {
-    fn new(name: &str, path: &str, line: usize) -> Self
+    fn new(name: &str, path: &str, line: u32) -> Self
     {
         Self {
             name: name.to_string(),
@@ -39,7 +39,7 @@ struct NameEntry {
 }
 
 impl NameEntry {
-    fn new(name: &str, path: &str, line: usize) -> Self
+    fn new(name: &str, path: &str, line: u32) -> Self
     {
         Self {
             info: NameInfo::new(name, path, line),
@@ -70,7 +70,7 @@ impl NameSet {
         &mut self,
         event_name: &str,
         file_name: &str,
-        line: usize,
+        line: u32,
         event: u16
     ) -> u16 {
         let real_name = if event_name.is_empty() {
@@ -120,7 +120,7 @@ impl NameSet {
         &mut self,
         value_name: &str,
         file_name: &str,
-        line: usize,
+        line: u32,
         event: u16,
         value: u32
     ) -> u32 {

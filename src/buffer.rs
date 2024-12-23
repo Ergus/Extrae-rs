@@ -224,7 +224,7 @@ impl Buffer {
     }
 
 
-    fn flush(&mut self) -> std::io::Result<()>
+    pub(crate) fn flush(&mut self) -> std::io::Result<()>
     {
         if self.info.is_empty() {
             return Ok(());
@@ -245,7 +245,7 @@ impl Buffer {
         self.info.flush_to_file(self.file.as_mut().unwrap())
     }
 
-    fn emplace_event(&mut self, id: u16, value: u32)
+    pub fn emplace_event(&mut self, id: u16, value: u32)
     {
         self.info.emplace_event(id, value);
     }

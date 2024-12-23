@@ -1,42 +1,78 @@
 #![allow(dead_code)]
 
-use std::sync::{Arc, RwLock};
+use std::io::Write;
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 use std::thread::ThreadId;
 
 use crate::buffer;
-use crate::global_info::GlobalInfo;
 
+/// BufferSet container
+/// 
+/// This is container stores the buffer for every thread. in a map
+/// <tid, Buffer> This is intended to remember the tid to reuse the
+/// Buffer because the tid is usually recycled after a thread is
+/// deleted.  This class is allocated inside a shared_ptr to enforce
+/// that it will be deleted only after the destruction of all the
+/// threads.  The Global container holds a reference to it; but every
+/// ThreadInfo will also keep one reference.
+/// 
+/// This is because it seems like on GNU/Linux the global variables
+/// are destructed after the main thread; but in MSWindows the Global
+/// variables seems to be removed before the main thread completes.
 pub struct BufferSet {
-    events_map: Arc<RwLock<HashMap<ThreadId, buffer::Buffer>>>,
+    events_map: HashMap<ThreadId, buffer::Buffer>,
     thread_counter: u32,
+
+    pub(crate) thread_running: u32,
+    pub(crate) start_system_time: std::time::Duration,
+    pub(crate) trace_directory_path: std::path::PathBuf,
 }
 
 impl BufferSet {
 
-    pub fn new() -> Self
-    {
+    pub fn new(
+        start_system_time: std::time::Duration,
+        trace_directory_path: std::path::PathBuf
+    ) -> Self {
         Self {
-            events_map: Arc::new(RwLock::new(HashMap::new())),
-            thread_counter: 0
+            events_map: HashMap::new(),
+            thread_counter: 0,
+            thread_running: 0,
+            start_system_time,
+            trace_directory_path
         }
     }
 
+    /// Get the Buffer_t associated with a thread id hash
+    ///
+    /// The threadIds are usually reused after a thread is destroyed.
+    /// Opening/closing files on every thread creation/deletion may be
+    /// too expensive; especially if the threads are created destroyed
+    /// very frequently.
+    ///
+    /// We keep the associative map <tid, Buffer> in order to reuse
+    /// Buffer and only execute IO operations when the buffer is full
+    /// or at the end of the execution.
+    ///
+    /// The extra cost for this is that we need to take a lock once
+    /// (on thread construction or when emitting the first event from
+    /// a thread) in order to get it's associated buffer.  This
+    /// function is responsible to take the lock and return the
+    /// associated buffer.  When a threadId is seen for a first time
+    /// this function creates the new entry in the map, construct the
+    /// Buffer and assign an ordinal id for it.  Any optimization here
+    /// will be very welcome.
     pub fn get_buffer(&mut self, tid: std::thread::ThreadId) -> buffer::Buffer
     {
-        // We attempt to take the read lock first. If this tid was
-        // already used, the buffer must be already created, and we
-        // don't need the exclusive access.
-        let mut mapwrite  = self.events_map.write().expect("Failed to get events_map lock");
-
-        match mapwrite.entry(tid) {
+        match self.events_map.entry(tid) {
             Entry::Occupied(entry) => entry.remove(),
             Entry::Vacant(_) => {
 
                 self.thread_counter += 1;
+                self.thread_running += 1;
 
-                let filename = GlobalInfo::get_info()
+                let filename = self
                     .trace_directory_path
                     .join(format!("Trace_{}", self.thread_counter));
 
@@ -44,24 +80,63 @@ impl BufferSet {
                     self.thread_counter,
                     &tid,
                     filename,
-                    &GlobalInfo::get_info().start_system_time
+                    &self.start_system_time
                 )
             }
         }
     }
 
-    pub fn save_buffer(&mut self, buffer: buffer::Buffer)
+    /// When a thread is destroyed it's buffer is saved back to the
+    /// buffer set in order to avoid creation and destruction too
+    /// often.
+    pub fn save_buffer(&mut self, buffer: buffer::Buffer) -> u32
     {
-        // We attempt to take the read lock first. If this tid was
-        // already used, the buffer must be already created, and we
-        // don't need the exclusive access.
-        let mut mapwrite  = self.events_map.write().expect("Failed to get events_map lock");
-
-        match mapwrite.entry(buffer.tid()) {
+        match self.events_map.entry(buffer.tid()) {
             Entry::Occupied(_) => panic!("Error reinserting buffer for existing tid"),
             Entry::Vacant(entry) => {
                 entry.insert(buffer);
+                self.thread_running -= 1;
             }
         }
+
+        self.thread_running
+    }
+
+    /// Write the trace.row file on exit.
+    pub fn create_row(&self, trace_dir: &std::path::Path) -> std::io::Result<()>
+    {
+        let hostname = nix::unistd::gethostname()
+            .expect("Error getting hostname")
+            .into_string().expect("Failed to convert hostname to string");
+
+        let ncores = {
+            match nix::unistd::sysconf(
+                nix::unistd::SysconfVar::_NPROCESSORS_CONF
+            ) {
+                Ok(Some(value)) => value,
+                _ => panic!("Error getting the number of cores"),
+            }
+        };
+
+        let nthreads = self.thread_counter - 1;
+
+        let rowfile = std::fs::File::create(trace_dir.join("Trace.row")).unwrap();
+        let mut writer = std::io::BufWriter::new(rowfile);
+
+        writeln!(writer, "LEVEL CPU SIZE {}", ncores)?;
+        for i in 1..=ncores {
+            writeln!(writer, "{}.{}", i, hostname)?;
+        }
+
+        writeln!(writer, "\nLEVEL NODE SIZE 1")?;
+        writeln!(writer, "{}", hostname)?;
+
+        writeln!(writer, "\nLEVEL THREAD SIZE {}", nthreads)?;
+
+        for i in 1..=nthreads {
+            writeln!(writer, "THREAD 1.1.{}", i)?;
+        }
+
+        Ok(())
     }
 }
