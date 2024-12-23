@@ -1,12 +1,11 @@
 #![allow(dead_code)]
 
 use crate::global_info::GlobalInfo; 
-use std::mem::ManuallyDrop;
 
 pub struct ThreadInfo {
     id: u32,
     tid: std::thread::ThreadId,
-    buffer_events: ManuallyDrop<crate::buffer::Buffer>,
+    buffer_events: crate::buffer::Buffer,
 }
 
 impl ThreadInfo {
@@ -14,18 +13,20 @@ impl ThreadInfo {
     fn new() -> Self
     {
         let tid = std::thread::current().id();
-        let buffer = GlobalInfo::get_buffer(tid);
-        let id = buffer.id();
+        let mut buffer_events = GlobalInfo::get_buffer(tid);
+        let id = buffer_events.id();
 
-        Self { tid, id, buffer_events:  ManuallyDrop::new(buffer) }
+        buffer_events.emplace_event(GlobalInfo::as_ref().thread_event_id, 1);
+
+        Self { tid, id, buffer_events }
     }
 }
 
 impl Drop for ThreadInfo {
     fn drop(&mut self) {
-        unsafe {
-            GlobalInfo::save_buffer_id(ManuallyDrop::take(&mut self.buffer_events));
-        }
+        self.buffer_events.emplace_event(GlobalInfo::as_ref().thread_event_id, 0);
+        self.buffer_events.flush().expect("Failed to flush buffer data");
+        GlobalInfo::save_buffer_id(&self.buffer_events);
     }
 }
 

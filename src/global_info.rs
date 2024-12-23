@@ -2,10 +2,10 @@
 
 pub struct GlobalInfo {
 
-    pub buffer_set: crate::bufferset::BufferSet,
+    buffer_set: crate::bufferset::BufferSet,
     name_set: crate::nameset::NameSet,
 
-    thread_event_id: u16,
+    pub thread_event_id: u16,
 }
 
 impl GlobalInfo {
@@ -67,10 +67,16 @@ static mut INFO: Option<GlobalInfo> = None;
 
 impl GlobalInfo {
 
+    pub(crate) fn as_ref() -> &'static GlobalInfo
+    {
+        unsafe {
+            INFO.get_or_insert_with(|| GlobalInfo::new()) as &GlobalInfo
+        }
+    }
+
     /// Get a buffer for this thread.
-    /// The buffer may be created now or maybe recovered from a
-    /// previous save.
-    // This requires mutable access to the variable.
+    /// The buffer may be created now or maybe recovered from a previous save.
+    /// This requires mutable access to the variable.
     pub(crate) fn get_buffer(tid: std::thread::ThreadId) -> crate::buffer::Buffer
     {
         unsafe {
@@ -79,9 +85,8 @@ impl GlobalInfo {
     }
 
     // This requires mutable access to the variable.
-    pub(crate) fn save_buffer_id(mut buffer: crate::buffer::Buffer)
+    pub(crate) fn save_buffer_id(buffer: &crate::buffer::Buffer)
     {
-        buffer.flush().expect("Failed to flush buffer to file");
         unsafe {
             let remaining_threads = INFO.as_mut()
                 .expect("Global info not set when called save_buffer_id")
