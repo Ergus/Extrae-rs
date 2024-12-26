@@ -49,6 +49,12 @@ impl TraceHeader {
         }
     }
 }
+impl std::fmt::Display for TraceHeader {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "id:{} tid:{:?} start_gtime:{} total_flushed:{}",
+            self.id, self.tid, self.start_gtime, self.total_flushed)
+    }
+}
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -80,13 +86,18 @@ impl EventEntry {
         // 2:cpu:appl:task:thread:time:event:value
         format!("2:{}:{}:{}:{}:{}:{}:{}",
             self.core, 1, 1, thread, self.time, self.id, self.value)
-
     }
+}
 
+impl std::fmt::Display for EventEntry {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "core:{} time:{} id:{} value:{}",
+            self.core, self.time, self.id, self.value)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
-struct BufferInfo {
+pub struct BufferInfo {
     header: TraceHeader,
     entries: Vec<EventEntry>,
 }
@@ -105,7 +116,7 @@ impl BufferInfo {
         }
     }
 
-    fn from_file(file: &mut std::fs::File) -> Self
+    pub fn from_file(file: &mut std::fs::File) -> Self
     {
         const HDRSIZE: usize = std::mem::size_of::<TraceHeader>();
         const EVTSIZE: usize = std::mem::size_of::<EventEntry>();
@@ -188,7 +199,19 @@ impl BufferInfo {
     {
         self.entries.is_empty()
     }
+}
 
+impl std::fmt::Display for BufferInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+
+        writeln!(f, "{}", self.header)?;
+
+        for entry in &self.entries {
+            writeln!(f, "{}", entry)?;
+        }
+
+        write!(f, "\n")
+    }
 }
 
 pub struct Buffer {
