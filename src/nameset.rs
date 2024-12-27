@@ -85,6 +85,7 @@ impl NameSet {
 
         let mut maplock = self.names_event_map.write().expect("Failed to get name_set lock");
 
+        // Is the provided id is zero we use the internal events counter.
         let mut event_ref: u16 =
             if event == u16::default() {
                 assert!(event < Self::MAX_USER_EVENT,
@@ -97,6 +98,9 @@ impl NameSet {
                 event
             };
 
+        // Is the event value is already occupied we silently search
+        // for the next closest hole and use it. We use the initial
+        // value only as a hint.
         match maplock.entry(event_ref) {
             Entry::Vacant(entry) => {entry.insert(value);},
             Entry::Occupied(_) => { // Find the first key available

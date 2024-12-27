@@ -6,11 +6,15 @@ edition = "2021"
 [dependencies]
 nix = { version = "0.29.0", features = ["sched","fs","hostname","feature"] }
 
+[dependencies.extrae_macros]
+path = "extrae_macros" # Crucial: Path to the proc-macro crate
+version = "0.1.0"
+
 [[bin]]
 name = "program"
-path = "src/program.rs"
+path = "bin/program.rs"
 
 [[bin]]
 name = "visualizer"
-path = "src/visualizer.rs"
+path = "bin/visualizer.rs"
 

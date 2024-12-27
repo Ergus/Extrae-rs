@@ -1,4 +1,4 @@
-use extrae_rs::{instrument_function, GlobalInfo, ThreadInfo};
+use extrae_rs::{instrument_function, GlobalInfo, ThreadInfo, profile};
 
 fn myfunction()
 {
@@ -18,6 +18,12 @@ fn myfunction3()
     std::thread::sleep(std::time::Duration::from_millis(10));
 }
 
+#[profile]
+fn myfunction4()
+{
+    std::thread::sleep(std::time::Duration::from_millis(10));
+}
+
 fn main() -> nix::Result<()>
 {
     println!("Start Program");
@@ -31,6 +37,8 @@ fn main() -> nix::Result<()>
     myfunction2();
 
     myfunction3();
+
+    myfunction4();
 
     println!("Done");
     Ok(())

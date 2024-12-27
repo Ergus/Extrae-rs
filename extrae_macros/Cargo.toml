@@ -1,0 +1,11 @@
+[package]
+name = "extrae_macros"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+proc-macro = true # Important: This declares it as a proc-macro crate
+
+[dependencies]
+syn = { version = "2", features = ["full"] } # For parsing Rust code
+quote = "1"                                  # For generating Rust code

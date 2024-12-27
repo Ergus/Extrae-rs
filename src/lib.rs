@@ -33,7 +33,6 @@ macro_rules! instrument_function {
             1
         );
     };
-
     ($arg1:expr) => {
         // Create a profiler guard
         static PROFILER_FUNCTION_ID: std::sync::OnceLock<u16> = std::sync::OnceLock::new();
@@ -42,7 +41,6 @@ macro_rules! instrument_function {
             1
         );
     };
-
     ($arg1:expr, $arg2:expr) => {
         // Create a profiler guard
         static PROFILER_FUNCTION_ID: std::sync::OnceLock<u16> = std::sync::OnceLock::new();
@@ -51,5 +49,7 @@ macro_rules! instrument_function {
             1
         );
     };
-    
 }
+
+// Re-export the macro. This is essential for users of your library
+pub use extrae_macros::profile;
