@@ -2,20 +2,10 @@
 
 use std::{io::{Read, Seek, Write}, os::unix::fs::FileExt};
 
-static INIT: std::sync::Once = std::sync::Once::new();
-static mut START_TIMESTAMP: Option<std::time::Instant> = None;
-
-/// Get micro-seconds since the trace begins for a given timePoint
+/// Get nano-seconds since the trace begins for a given timePoint
 fn get_nano_seconds() -> u128 {
-    // Ensures initialization occurs only once
-    INIT.call_once(|| {
-        // Initialize the static variable
-        unsafe {
-            START_TIMESTAMP = Some(std::time::Instant::now());
-        }
-    });
-    // Safety: We know START_TIMESTAMP has been initialized by `call_once`
-    unsafe { START_TIMESTAMP.as_ref().unwrap().elapsed().as_nanos() }
+    static START_TIMESTAMP: std::sync::OnceLock::<std::time::Instant> = std::sync::OnceLock::<std::time::Instant>::new();
+    START_TIMESTAMP.get_or_init(std::time::Instant::now).elapsed().as_nanos()
 }
 
 #[repr(C)]
