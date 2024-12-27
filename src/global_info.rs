@@ -63,6 +63,8 @@ impl GlobalInfo {
 // This will force me to use unsafe code, but at leats I won't need to
 // have a global Mutex for every access to the global information.
 // The internal functions already have a lock when needed.
+// The initialization happens in main and the risk of multiple attempts
+// to initialize is very low, so we ignore it for now.
 static mut INFO: Option<GlobalInfo> = None;
 
 impl GlobalInfo {
@@ -106,11 +108,11 @@ impl GlobalInfo {
         file_name: &str,
         line: u32,
         event: u16
-    ) {
+    ) -> u16 {
         unsafe {
             INFO.get_or_insert_with(|| GlobalInfo::new())
                 .name_set
-                .register_event_name(event_name, file_name, line, event);
+                .register_event_name(event_name, file_name, line, event)
         }
     }
 }

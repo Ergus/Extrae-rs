@@ -1,4 +1,22 @@
-use extrae_rs::{GlobalInfo, ThreadInfo};
+use extrae_rs::{instrument_function, GlobalInfo, ThreadInfo};
+
+fn myfunction()
+{
+    instrument_function!();
+    std::thread::sleep(std::time::Duration::from_millis(10));
+}
+
+fn myfunction2()
+{
+    instrument_function!("MyFunction");
+    std::thread::sleep(std::time::Duration::from_millis(10));
+}
+
+fn myfunction3()
+{
+    instrument_function!("MyFunction3", 20);
+    std::thread::sleep(std::time::Duration::from_millis(10));
+}
 
 fn main() -> nix::Result<()>
 {
@@ -7,6 +25,12 @@ fn main() -> nix::Result<()>
     ThreadInfo::emplace_event(10, 1);
 
     ThreadInfo::emplace_event(10, 0);
+
+    myfunction();
+
+    myfunction2();
+
+    myfunction3();
 
     println!("Done");
     Ok(())
