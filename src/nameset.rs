@@ -87,9 +87,13 @@ impl NameSet {
 
         let mut event_ref: u16 =
             if event == u16::default() {
+                assert!(event < Self::MAX_USER_EVENT,
+                    "Internal counter event value reached the limit");
                 self.counter += 1;
                 self.counter
             } else {
+                assert!(event < Self::MAX_USER_EVENT,
+                    "Event value must be < {}", Self::MAX_USER_EVENT);
                 event
             };
 
