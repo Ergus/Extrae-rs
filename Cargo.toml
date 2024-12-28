@@ -11,6 +11,10 @@ path = "extrae-macros" # Crucial: Path to the proc-macro crate
 version = "0.1.0"
 
 [[bin]]
+name = "program_threads"
+path = "bin/program_threads.rs"
+
+[[bin]]
 name = "program"
 path = "bin/program.rs"
 
