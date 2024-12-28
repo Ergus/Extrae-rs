@@ -8,13 +8,13 @@ fn myfunction()
 
 fn myfunction2()
 {
-    instrument_function!("MyFunction");
+    instrument_function!("MyFunction2_manual");
     std::thread::sleep(std::time::Duration::from_millis(10));
 }
 
 fn myfunction3()
 {
-    instrument_function!("MyFunction3", 20);
+    instrument_function!("MyFunction3_manual_value_20", 20);
     std::thread::sleep(std::time::Duration::from_millis(10));
 }
 

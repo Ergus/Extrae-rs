@@ -17,37 +17,43 @@ pub use profiler::Guard;
 macro_rules! instrument_function {
     () => {
         // Create a profiler guard
-        static PROFILER_FUNCTION_ID: std::sync::OnceLock<u16> = std::sync::OnceLock::new();
-        let _guard = extrae_rs::Guard::new(
-            *PROFILER_FUNCTION_ID.get_or_init(|| GlobalInfo::register_event_name(
-                {
-                    fn f() {}
-                    fn type_name_of<T>(_: T) -> &'static str {
-                        std::any::type_name::<T>()
-                    }
-                    let name = type_name_of(f);
-                    // 16 is the length of ::{{closure}}::f
-                    &name[..name.len() - 16]
-                },
-                file!(), line!(), 0)),
-            1
-        );
+        let _guard = {
+            static PROFILER_ONCE: std::sync::OnceLock<u16> = std::sync::OnceLock::new();
+            extrae_rs::Guard::new(
+                *PROFILER_ONCE.get_or_init(|| GlobalInfo::register_event_name(
+                    {
+                        fn f() {}
+                        fn type_name_of<T>(_: T) -> &'static str {
+                            std::any::type_name::<T>()
+                        }
+                        let name = type_name_of(f);
+                        // 16 is the length of ::{{closure}}::f
+                        &name[..name.len() - 16]
+                    },
+                    file!(), line!(), 0)),
+                1
+            )
+        };
     };
     ($arg1:expr) => {
-        // Create a profiler guard
-        static PROFILER_FUNCTION_ID: std::sync::OnceLock<u16> = std::sync::OnceLock::new();
-        let _guard = extrae_rs::Guard::new(
-            *PROFILER_FUNCTION_ID.get_or_init(|| GlobalInfo::register_event_name($arg1, file!(), line!(), 0)),
-            1
-        );
+        let _guard = {
+            // Create a profiler guard
+            static PROFILER_ONCE: std::sync::OnceLock<u16> = std::sync::OnceLock::new();
+            extrae_rs::Guard::new(
+                *PROFILER_ONCE.get_or_init(|| GlobalInfo::register_event_name($arg1, file!(), line!(), 0)),
+                1
+            )
+        };
     };
     ($arg1:expr, $arg2:expr) => {
-        // Create a profiler guard
-        static PROFILER_FUNCTION_ID: std::sync::OnceLock<u16> = std::sync::OnceLock::new();
-        let _guard = extrae_rs::Guard::new(
-            *PROFILER_FUNCTION_ID.get_or_init(|| GlobalInfo::register_event_name($arg1, file!(), line!(), $arg2)),
-            1
-        );
+        let _guard = {
+            // Create a profiler guard
+            static PROFILER_ONCE: std::sync::OnceLock<u16> = std::sync::OnceLock::new();
+            extrae_rs::Guard::new(
+                *PROFILER_ONCE.get_or_init(|| GlobalInfo::register_event_name($arg1, file!(), line!(), $arg2)),
+                1
+            )
+        };
     };
 }
 
