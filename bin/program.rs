@@ -19,9 +19,10 @@ fn myfunction3()
 }
 
 #[profile]
-fn myfunction4()
+fn myfunction4() -> u32
 {
     std::thread::sleep(std::time::Duration::from_millis(10));
+    0
 }
 
 fn main() -> nix::Result<()>
@@ -38,7 +39,7 @@ fn main() -> nix::Result<()>
 
     myfunction3();
 
-    myfunction4();
+    let _ = myfunction4();
 
     println!("Done");
     Ok(())

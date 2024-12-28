@@ -16,7 +16,7 @@ pub use profiler::Guard;
 #[macro_export]
 macro_rules! instrument_function {
     () => {
-        // Create a profiler guard
+        #[cfg(feature = "profiling")]
         let _guard = {
             static PROFILER_ONCE: std::sync::OnceLock<u16> = std::sync::OnceLock::new();
             extrae_rs::Guard::new(
@@ -36,6 +36,7 @@ macro_rules! instrument_function {
         };
     };
     ($arg1:expr) => {
+        #[cfg(feature = "profiling")]
         let _guard = {
             // Create a profiler guard
             static PROFILER_ONCE: std::sync::OnceLock<u16> = std::sync::OnceLock::new();
@@ -46,6 +47,7 @@ macro_rules! instrument_function {
         };
     };
     ($arg1:expr, $arg2:expr) => {
+        #[cfg(feature = "profiling")]
         let _guard = {
             // Create a profiler guard
             static PROFILER_ONCE: std::sync::OnceLock<u16> = std::sync::OnceLock::new();
