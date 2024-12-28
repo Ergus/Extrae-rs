@@ -18,3 +18,5 @@ path = "bin/program.rs"
 name = "visualizer"
 path = "bin/visualizer.rs"
 
+[features]
+profiling = [] # Define the profiling feature (can be empty)
