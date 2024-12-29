@@ -7,7 +7,7 @@ use syn::{parse_macro_input, ItemFn};
 struct ProfileAttr {
     level: u32,
     name: String,
-    value: u32,
+    value: u16,
 }
 
 
@@ -26,7 +26,7 @@ impl ProfileAttr {
             self.name = meta.value()?.parse::<syn::LitStr>()?.value();
             Ok(())
         } else if meta.path.is_ident("value") {
-            self.value = meta.value()?.parse::<syn::LitInt>()?.base10_parse::<u32>()?;
+            self.value = meta.value()?.parse::<syn::LitInt>()?.base10_parse::<u16>()?;
             Ok(())
         } else {
             Err(meta.error("unsupported profile property"))
