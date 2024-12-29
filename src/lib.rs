@@ -59,5 +59,13 @@ macro_rules! instrument_function {
     };
 }
 
+#[macro_export]
+macro_rules! instrument_update {
+    ($arg1:expr) => {
+        #[cfg(feature = "profiling")]
+        _guard.update($arg1);
+    };
+}
+
 // Re-export the macro. This is essential for users of your library
 pub use extrae_macros::profile;

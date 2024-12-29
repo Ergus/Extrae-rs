@@ -11,6 +11,11 @@ impl Guard {
         crate::ThreadInfo::emplace_event(id, value);
         Self {id}
     }
+
+    pub fn update(&self, value: u32)
+    {
+        crate::ThreadInfo::emplace_event(self.id, value);
+    }
 }
 
 impl Drop for Guard {
