@@ -15,7 +15,7 @@ name = "program_threads"
 path = "bin/program_threads.rs"
 
 [[bin]]
-name = "program_declarative.rs"
+name = "program_declarative"
 path = "bin/program_declarative.rs"
 
 [[bin]]

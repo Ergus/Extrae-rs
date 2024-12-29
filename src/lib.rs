@@ -35,7 +35,7 @@ macro_rules! instrument_function {
             )
         };
     };
-    ($arg1:expr) => {
+    ($arg1:literal) => {
         #[cfg(feature = "profiling")]
         let _guard = {
             // Create a profiler guard
@@ -46,7 +46,7 @@ macro_rules! instrument_function {
             )
         };
     };
-    ($arg1:expr, $arg2:expr) => {
+    ($arg1:literal, $arg2:literal) => {
         #[cfg(feature = "profiling")]
         let _guard = {
             // Create a profiler guard

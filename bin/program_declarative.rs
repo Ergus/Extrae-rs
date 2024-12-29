@@ -1,4 +1,4 @@
-use extrae_rs::{instrument_function, GlobalInfo, ThreadInfo, profile};
+use extrae_rs::{instrument_function, GlobalInfo, ThreadInfo};
 
 fn myfunction()
 {
