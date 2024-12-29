@@ -75,14 +75,14 @@ no instrumentation will be generated at all.
 
 After the execution of instrumented code the profiler creates a new
 `TRACE\_[timestamp]` directory. It contains multiple trace files:
-`Trace_#`. There is one of such files for every thread created during
-the program execution, where `#` is the internal thread id. The main
-thread is always 1.
+`Trace_[tid].bin`. There is one of such files for every thread created
+during the program execution, where `[tid]` is the internal thread
+id. The main thread is always 1.
 
 The profiler prints the name of the directory at the end of the
 execution.
 
-The `Trace_#` files are binary files with all the trace events. The
+The `Trace_*.bin` files are binary files with all the trace events. The
 final trace needs to merge all the files in order to visualize them
 with tools like [Paraver](https://tools.bsc.es/paraver).
 

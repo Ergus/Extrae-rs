@@ -81,14 +81,10 @@ impl BufferSet {
 
         self.thread_running.fetch_add(1, atomic::Ordering::Relaxed);
 
-        let filename = self
-            .trace_directory_path
-            .join(format!("Trace_{}", id));
-
         buffer::Buffer::new(
             id,
             &tid,
-            filename,
+            self .trace_directory_path .join(format!("Trace_{}.bin", id)),
             &self.start_system_time
         )
     }
