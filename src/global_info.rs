@@ -17,7 +17,7 @@ impl GlobalInfo {
                 .expect("Time went backwards");
 
         // TODO: Convert the time to something friendly
-        let trace_dir = format!("TRACEDIR_{}", start_system_time.as_secs());
+        let trace_dir = format!("TRACEDIR_{}", start_system_time.as_millis());
 
         let trace_directory_path = std::path::PathBuf::from(trace_dir);
         if !trace_directory_path.exists() {

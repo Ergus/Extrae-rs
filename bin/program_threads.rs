@@ -1,4 +1,4 @@
-use extrae_rs::{instrument_function, profile};
+use extrae_rs::{instrument_function, profile, GlobalInfo};
 
 #[profile]
 fn myfunction(i: u32) -> u32
