@@ -12,41 +12,59 @@ In the near future this code will add perf integration and some other stuff.
 
 ## Usage
 
-At the moment the core includes multiple instrumentation methods:
+At the moment the core includes two instrumentation methods:
+
+### With declarative macros:
 
 ```rust
-use extrae_rs::{instrument_function, GlobalInfo, ThreadInfo, profile};
 
-// Instrument all the function scope
-#[profile]
+// This instruments all the function scope
 fn myfunction()
 {
-    std::thread::sleep(std::time::Duration::from_millis(10));
+    instrument_function!(); 
+    // Some code
 }
 
-// This is almost equivalent to the code above
-fn myfunction()
-{
-    instrument_function!(); // This instruments all the function scope
-    std::thread::sleep(std::time::Duration::from_millis(10));
-}
-
-// Similar, but specifying the function name
+// Specifying the function name
 fn myfunction2()
 {
     instrument_function!("MyFunction2_manual");
-    std::thread::sleep(std::time::Duration::from_millis(10));
+    // Some code
 }
 
-// Also specify the user event number
+// Also specify the event number
 fn myfunction3()
 {
     instrument_function!("MyFunction3_manual_value_20", 20);
-    std::thread::sleep(std::time::Duration::from_millis(10));
+    // Some code
 }
 ```
 
-The test program can be executed as:
+### With procedural macros:
+
+```rust
+
+#[profile]
+fn myfunction()
+{
+    // Some code
+}
+
+#[profile(name="MyFunction2_manual")]
+fn myfunction2()
+{
+    // Some code
+}
+
+#[profile(name="MyFunction3_manual_value_20",value=20)]
+fn myfunction3()
+{
+    // Some code
+}
+```
+
+We provide test programs code for both cases and the user can mix both
+syntaxes. 
 
 ```shell
 cargo expand --bin program --features profiling

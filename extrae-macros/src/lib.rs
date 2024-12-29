@@ -4,6 +4,36 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse_macro_input, ItemFn};
 
+struct ProfileAttr {
+    level: u32,
+    name: String,
+    value: u32,
+}
+
+
+impl ProfileAttr {
+    fn new(name: String) -> Self
+    {
+        Self { level: 0, name , value: 0 }
+    }
+
+    fn parse(&mut self, meta: syn::meta::ParseNestedMeta) -> syn::Result<()>
+    {
+        if meta.path.is_ident("level") {
+            self.level = meta.value()?.parse::<syn::LitInt>()?.base10_parse::<u32>()?;
+            Ok(())
+        } else if meta.path.is_ident("name") {
+            self.name = meta.value()?.parse::<syn::LitStr>()?.value();
+            Ok(())
+        } else if meta.path.is_ident("value") {
+            self.value = meta.value()?.parse::<syn::LitInt>()?.base10_parse::<u32>()?;
+            Ok(())
+        } else {
+            Err(meta.error("unsupported profile property"))
+        }
+    }
+}
+
 #[proc_macro_attribute]
 pub fn profile(args: TokenStream, item: TokenStream) -> TokenStream
 {
@@ -15,32 +45,16 @@ pub fn profile(args: TokenStream, item: TokenStream) -> TokenStream
     let fn_sig = input_fn.sig;
 
     // https://docs.rs/syn/latest/syn/meta/fn.parser.html#example
-    let mut level: u32 = 0; // Default profiling level
-    let level_parser = syn::meta::parser(|meta| {
-        if meta.path.is_ident("level") {
-            let lit_int: syn::LitInt = meta.value()?.parse()?;
-            // Convert the LitInt to a numeric value
-            level = lit_int.base10_parse::<u32>()?;
-            Ok(())
-        } else {
-            Err(meta.error("unsupported debugger property"))
-        }
-    });
+    let mut attrs = ProfileAttr::new(fn_name);
+    let profile_parser = syn::meta::parser(|meta| attrs.parse(meta));
+    parse_macro_input!(args with profile_parser);
 
-    parse_macro_input!(args with level_parser);
+    let fn_name = attrs.name.clone();
+    let value = attrs.value;
 
     let expanded = quote! {
         #fn_vis #fn_sig {
-            #[cfg(feature = "profiling")]
-            {
-                static PROFILER_ONCE: std::sync::OnceLock<u16> = std::sync::OnceLock::new();
-                let id: u16 = *PROFILER_ONCE.get_or_init(|| extrae_rs::GlobalInfo::register_event_name(#fn_name, file!(), line!(), 0));
-                crate::ThreadInfo::emplace_event(id, 1);
-                let result = #fn_block;
-                crate::ThreadInfo::emplace_event(id, 0);
-                result
-            }
-            #[cfg(not(feature = "profiling"))]
+            instrument_function!(#fn_name, #value);
             #fn_block
         }
     };

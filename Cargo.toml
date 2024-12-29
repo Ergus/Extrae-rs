@@ -15,8 +15,12 @@ name = "program_threads"
 path = "bin/program_threads.rs"
 
 [[bin]]
-name = "program"
-path = "bin/program.rs"
+name = "program_declarative.rs"
+path = "bin/program_declarative.rs"
+
+[[bin]]
+name = "program_procedural"
+path = "bin/program_procedural.rs"
 
 [[bin]]
 name = "visualizer"
