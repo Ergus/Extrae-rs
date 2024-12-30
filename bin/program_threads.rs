@@ -1,7 +1,14 @@
 use extrae_rs::{instrument_function, profile, GlobalInfo};
 
 #[profile]
-fn myfunction(i: u32) -> u32
+fn myfunction1(i: u32) -> u32
+{
+    std::thread::sleep(std::time::Duration::from_millis(10));
+    i
+}
+
+#[profile]
+fn myfunction2(i: u32) -> u32
 {
     std::thread::sleep(std::time::Duration::from_millis(10));
     i
@@ -11,17 +18,24 @@ fn main() -> nix::Result<()>
 {
     println!("Start Program");
 
-    let handle = std::thread::spawn(|| {
-        for i in 1..10 {
-            println!("hi number {} from the spawned thread!", myfunction(i));
+    std::thread::scope(|s| {
+        for thread in 1..4 {
+            s.spawn(move || {
+                for i in 1..5 {
+                    println!("Thread: {} function1!: {}", thread, myfunction1(i));
+                }
+                for i in 1..5 {
+                    println!("Thread: {} function2!: {}", thread, myfunction2(i));
+                }
+            });
         }
     });
 
-    for i in 1..5 {
-        println!("hi number {} from the main thread!", myfunction(i));
-    }
+    println!("hello from the main thread");
 
-    handle.join().unwrap();
+    for i in 1..10 {
+        println!("Call function1!: {}", myfunction1(i));
+    };
 
     println!("Done");
     Ok(())

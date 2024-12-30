@@ -59,9 +59,12 @@ impl EventEntry {
     fn new(id: u16, value: u32) -> Self
     {
         Self {
-            time: u64::try_from(get_nano_seconds()).expect("Time conversion overflow"),
+            time: u64::try_from(get_nano_seconds())
+                .expect("Time conversion overflow"),
             id,
-            core: u16::try_from(nix::sched::sched_getcpu().expect("Could not get cpuID")).expect("cpuid conversion overflow"),
+            core: u16::try_from(nix::sched::sched_getcpu()
+                .expect("Could not get cpuID"))
+                .expect("cpuid conversion overflow"),
             value,
         }
     }
