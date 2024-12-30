@@ -20,9 +20,13 @@ impl GlobalInfo {
         let trace_dir = format!("TRACEDIR_{}", start_system_time.as_millis());
 
         let trace_directory_path = std::path::PathBuf::from(trace_dir);
-        if !trace_directory_path.exists() {
-            std::fs::create_dir(&trace_directory_path).expect("Failed to create trade directory");
-        }
+        std::fs::create_dir(&trace_directory_path)
+            .unwrap_or_else(|_| {
+                panic!("Failed to create trace directory: {}",
+                    trace_directory_path.as_os_str()
+                    .to_str()
+                    .unwrap())
+            });
 
         let mut name_set = crate::nameset::NameSet::new();
         let buffer_set = crate::bufferset::BufferSet::new(
