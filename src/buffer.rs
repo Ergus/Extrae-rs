@@ -111,12 +111,14 @@ impl BufferInfo {
 
     pub fn from_file(file: &mut std::fs::File) -> Self
     {
+        let mut buf_reader = std::io::BufReader::new(file);
+
         const HDRSIZE: usize = std::mem::size_of::<TraceHeader>();
         const EVTSIZE: usize = std::mem::size_of::<EventEntry>();
 
         // Allocate a buffer to read the structs
         let mut tmp = vec![0u8; HDRSIZE];
-        file.read_exact(&mut tmp).expect("Error reading header from file");
+        buf_reader.read_exact(&mut tmp).expect("Error reading header from file");
 
         let header: TraceHeader = unsafe {
             *(tmp.as_ptr() as *const TraceHeader) 
@@ -128,7 +130,7 @@ impl BufferInfo {
         let n_entries: usize = header.total_flushed as usize;
         let mut entries = Vec::<EventEntry>::with_capacity(n_entries);
 
-        file.read_exact(
+        buf_reader.read_exact(
             unsafe {
                 std::slice::from_raw_parts_mut(
                     entries.as_mut_ptr() as *mut u8,
