@@ -10,11 +10,11 @@ fn get_nano_seconds() -> u128 {
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
-struct TraceHeader {
-    id: u32,
-    tid: std::thread::ThreadId,
-    start_gtime: u64,
-    total_flushed: u32,
+pub(crate) struct TraceHeader {
+    pub(crate) id: u32,
+    pub(crate) tid: std::thread::ThreadId,
+    pub(crate) start_gtime: u64,
+    pub(crate) total_flushed: u32,
 }
 
 impl TraceHeader {
@@ -47,45 +47,69 @@ impl std::fmt::Display for TraceHeader {
 }
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy, PartialEq)]
-struct EventEntry {
-    time: u64,
-    id: u16,
-    core: u16,
-    value: u32,
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Default)]
+pub(crate) struct EventHeader {
+    pub(crate) time: u64,
+    pub(crate) core: u16,
+}
+
+impl EventHeader {
+    fn new() -> Self
+    {
+        Self {
+            time: u64::try_from(get_nano_seconds())
+                .expect("Time conversion overflow"),
+            core: u16::try_from(nix::sched::sched_getcpu()
+                .expect("Could not get cpuID"))
+                .expect("cpuid conversion overflow"),
+        }
+    }
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Default)]
+pub(crate) struct EventInfo {
+    pub(crate) id: u16,
+    pub(crate) value: u32,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Default)]
+pub(crate) struct EventEntry {
+    pub(crate) hdr: EventHeader,
+    pub(crate) info: EventInfo,
 }
 
 impl EventEntry {
     fn new(id: u16, value: u32) -> Self
     {
         Self {
-            time: u64::try_from(get_nano_seconds())
-                .expect("Time conversion overflow"),
-            id,
-            core: u16::try_from(nix::sched::sched_getcpu()
-                .expect("Could not get cpuID"))
-                .expect("cpuid conversion overflow"),
-            value,
+            hdr: EventHeader::new(),
+            info: EventInfo {
+                id,
+                value,
+            }
         }
     }
+}
 
-    const fn bytes() -> usize
-    {
-        std::mem::size_of::<Self>()
+// Needed to sort in the heap
+impl PartialOrd for EventEntry {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
     }
+}
 
-    fn as_line(&self, thread: u32) -> String
-    {
-        // 2:cpu:appl:task:thread:time:event:value
-        format!("2:{}:{}:{}:{}:{}:{}:{}",
-            self.core, 1, 1, thread, self.time, self.id, self.value)
+impl Ord for EventEntry {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.hdr.time.cmp(&other.hdr.time)
     }
 }
 
 impl std::fmt::Display for EventEntry {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "core:{} time:{} id:{} value:{}",
-            self.core, self.time, self.id, self.value)
+            self.hdr.core, self.hdr.time, self.info.id, self.info.value)
     }
 }
 
@@ -96,7 +120,7 @@ pub struct BufferInfo {
 }
 
 impl BufferInfo {
-    const MAX_ENTRIES: usize = (1024 * 1024 + EventEntry::bytes() - 1) / EventEntry::bytes();
+    const MAX_ENTRIES: usize = (1024 * 1024 + std::mem::size_of::<EventEntry>() - 1) / std::mem::size_of::<EventEntry>();
 
     fn new(
         id: u32,
@@ -144,9 +168,7 @@ impl BufferInfo {
         }
 
         Self { header, entries }
-
     }
-
 
     fn entries_as_bytes(&self) -> &[u8]
     {
@@ -241,7 +263,7 @@ impl Buffer {
     }
 
 
-    fn from_file(path: std::path::PathBuf) -> Self
+    fn from_path(path: std::path::PathBuf) -> Self
     {
         let mut file = std::fs::File::open(&path).unwrap();
 
@@ -455,8 +477,8 @@ mod profiler{
 
         assert_eq!(imported_info.header.total_flushed, 6);
         for i in 0..6 {
-            assert_eq!(imported_info.entries[i].id, i as u16);
-            assert_eq!(imported_info.entries[i].value, (i + 1) as u32);
+            assert_eq!(imported_info.entries[i].info.id, i as u16);
+            assert_eq!(imported_info.entries[i].info.value, (i + 1) as u32);
         }
 
         std::fs::remove_file(path).unwrap();
