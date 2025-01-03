@@ -1,4 +1,4 @@
-use extrae_rs::{instrument_function, profile, GlobalInfo};
+use extrae_rs::profile;
 
 #[profile]
 fn myfunction()

@@ -54,7 +54,7 @@ pub fn profile(args: TokenStream, item: TokenStream) -> TokenStream
 
     let expanded = quote! {
         #fn_vis #fn_sig {
-            instrument_function!(#fn_name, #value);
+            extrae_rs::instrument_function!(#fn_name, #value);
             #fn_block
         }
     };
