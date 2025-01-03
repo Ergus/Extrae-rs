@@ -92,7 +92,7 @@ impl std::fmt::Display for ExtendedEvent {
     }
 }
 
-struct Merger
+pub(crate) struct Merger
 {
     dir_path: std::path::PathBuf,
     file_paths: Vec<std::path::PathBuf>,
@@ -104,7 +104,7 @@ struct Merger
 
 impl Merger {
 
-    fn new(dir: &std::path::Path) -> Self
+    pub(crate) fn new(dir: &std::path::Path) -> Self
     {
         let file_paths = Merger::get_files_with_extension(dir, "bin");
         let (events, threads, cores, start_global_time)
@@ -141,18 +141,34 @@ impl Merger {
             .collect()
     }
 
-
-    fn get_paraver_header(&self) -> String
+    pub(crate) fn create_prv(&self) -> std::io::Result<()>
     {
-        let elapsed = self.events.last().unwrap().time - self.events.first().unwrap().time;
+        let file = std::fs::File::create(self.dir_path.join("Trace.prv"))?;
+        let mut writer = std::io::BufWriter::new(file);
 
         // Convert u64 timestamp to DateTime<Utc>
         let datetime: chrono::DateTime<chrono::Local>
             = chrono::Local.timestamp_opt(self.start_global_time as i64, 0).unwrap();
 
-        format!("#Paraver ({}):{}_ns:1({}):1:1({}:1)",
+        // Print the header
+        writeln!(
+            writer,
+            "#Paraver ({}):{}_ns:1({}):1:1({}:1)",
             datetime.format("%d/%m/%Y at %H:%M"),
-            elapsed, self.cores.len(), self.threads.len())
+            self.events.last().unwrap().time - self.events.first().unwrap().time,
+            self.cores.iter().max().unwrap(),
+            self.threads.len()
+        )?;
+
+        println!("Cores: {:?}", self.cores);
+        println!("Threads: {:?}", self.threads);
+        println!("Total Events: {}", self.events.len());
+
+        for event in self.events.iter() {
+            writeln!(writer, "{}", event)?;
+        }
+
+        Ok(())
     }
 
 

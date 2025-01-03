@@ -14,6 +14,7 @@ mod profiler;
 pub use profiler::Guard;
 
 mod parser;
+pub(crate) use parser::Merger;
 
 #[macro_export]
 macro_rules! instrument_function {
@@ -22,7 +23,7 @@ macro_rules! instrument_function {
         let _guard = {
             static PROFILER_ONCE: std::sync::OnceLock<u16> = std::sync::OnceLock::new();
             extrae_rs::Guard::new(
-                *PROFILER_ONCE.get_or_init(|| crate::GlobalInfo::register_event_name(
+                *PROFILER_ONCE.get_or_init(|| extrae_rs::GlobalInfo::register_event_name(
                     {
                         fn f() {}
                         fn type_name_of<T>(_: T) -> &'static str {
@@ -43,7 +44,7 @@ macro_rules! instrument_function {
             // Create a profiler guard
             static PROFILER_ONCE: std::sync::OnceLock<u16> = std::sync::OnceLock::new();
             extrae_rs::Guard::new(
-                *PROFILER_ONCE.get_or_init(|| crate::GlobalInfo::register_event_name($arg1, file!(), line!(), 0)),
+                *PROFILER_ONCE.get_or_init(|| extrae_rs::GlobalInfo::register_event_name($arg1, file!(), line!(), 0)),
                 1
             )
         };
@@ -54,7 +55,7 @@ macro_rules! instrument_function {
             // Create a profiler guard
             static PROFILER_ONCE: std::sync::OnceLock<u16> = std::sync::OnceLock::new();
             extrae_rs::Guard::new(
-                *PROFILER_ONCE.get_or_init(|| crate::GlobalInfo::register_event_name($arg1, file!(), line!(), $arg2)),
+                *PROFILER_ONCE.get_or_init(|| extrae_rs::GlobalInfo::register_event_name($arg1, file!(), line!(), $arg2)),
                 1
             )
         };

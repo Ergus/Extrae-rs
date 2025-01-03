@@ -164,7 +164,7 @@ impl NameSet {
 
     pub fn create_pcf(&self, trace_dir: &std::path::Path) -> std::io::Result<()>
     {
-        let file = std::fs::File::create(trace_dir.join("Trace.pcf")).unwrap();
+        let file = std::fs::File::create(trace_dir.join("Trace.pcf"))?;
         let mut writer = std::io::BufWriter::new(file);
 
         let mapread = self.names_event_map.read().expect("Failed to get name_set lock");

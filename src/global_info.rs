@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+use crate::Merger;
+
 pub struct GlobalInfo {
 
     buffer_set: crate::bufferset::BufferSet,
@@ -57,6 +59,10 @@ impl GlobalInfo {
         self.name_set
             .create_pcf(output_path)
             .expect("Error creating PCF file");
+
+        Merger::new(output_path)
+            .create_prv()
+            .expect("Error creating the prv trace");
 
         println!("# Profiler TraceDir: {}", output_path.to_str().unwrap());
     }
