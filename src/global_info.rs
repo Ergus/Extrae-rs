@@ -100,7 +100,8 @@ impl GlobalInfo {
     pub(crate) fn save_buffer_id(buffer: &crate::buffer::Buffer)
     {
         unsafe {
-            let remaining_threads = INFO.as_mut()
+            let remaining_threads = INFO
+                .as_mut()
                 .expect("Global info not set when called save_buffer_id")
                 .buffer_set
                 .save_buffer_id(&buffer);

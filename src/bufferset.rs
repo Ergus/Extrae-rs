@@ -24,8 +24,8 @@ use crate::buffer;
 /// variables seems to be removed before the main thread completes.
 pub struct BufferSet {
     events_map: Arc<RwLock<HashMap<ThreadId, u32>>>,
-    thread_counter: atomic::AtomicU32,
-    thread_running: atomic::AtomicU32,
+    threads_counter: atomic::AtomicU32,
+    threads_running: atomic::AtomicU32,
 
     pub(crate) start_system_time: std::time::Duration,
     pub(crate) trace_directory_path: std::path::PathBuf,
@@ -39,8 +39,8 @@ impl BufferSet {
     ) -> Self {
         Self {
             events_map: Arc::new(RwLock::new(HashMap::new())),
-            thread_counter: atomic::AtomicU32::new(0),
-            thread_running: atomic::AtomicU32::new(0),
+            threads_counter: atomic::AtomicU32::new(0),
+            threads_running: atomic::AtomicU32::new(0),
             start_system_time,
             trace_directory_path
         }
@@ -75,11 +75,11 @@ impl BufferSet {
                 .expect("Failed to get events_map read lock")
                 .get(&tid) {
                     Some(&value) => value,
-                    None => self.thread_counter.fetch_add(1, atomic::Ordering::Relaxed) + 1,
+                    None => self.threads_counter.fetch_add(1, atomic::Ordering::Relaxed) + 1,
                 }
         };
 
-        self.thread_running.fetch_add(1, atomic::Ordering::Relaxed);
+        self.threads_running.fetch_add(1, atomic::Ordering::Relaxed);
 
         buffer::Buffer::new(
             id,
@@ -108,11 +108,13 @@ impl BufferSet {
                 },
                 Entry::Vacant(entry) => {
                     entry.insert(buffer.id());
-                    self.thread_running.fetch_sub(1, atomic::Ordering::Relaxed);
+                    self.threads_running.fetch_sub(1, atomic::Ordering::Relaxed);
                 }
             };
 
-        self.thread_running.load(atomic::Ordering::Relaxed)
+        // The thread counter is in the worst possible place (here)
+        // But that's because this is the safest possible place.
+        self.threads_running.load(atomic::Ordering::Relaxed)
     }
 
     /// Write the trace.row file on exit.
@@ -131,7 +133,7 @@ impl BufferSet {
             }
         };
 
-        let nthreads = self.thread_counter.load(atomic::Ordering::Relaxed);
+        let nthreads = self.threads_counter.load(atomic::Ordering::Relaxed);
 
         let rowfile = std::fs::File::create(trace_dir.join("Trace.row")).unwrap();
         let mut writer = std::io::BufWriter::new(rowfile);
