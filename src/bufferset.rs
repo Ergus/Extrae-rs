@@ -84,7 +84,7 @@ impl BufferSet {
         buffer::Buffer::new(
             id,
             &tid,
-            self .trace_directory_path .join(format!("Trace_{}.bin", id)),
+            self.trace_directory_path.join(format!("Trace_{}.bin", id)),
             &self.start_system_time
         )
     }
@@ -120,6 +120,9 @@ impl BufferSet {
     /// Write the trace.row file on exit.
     pub fn create_row(&self, trace_dir: &std::path::Path) -> std::io::Result<()>
     {
+        // Yes I am a bit paranoic.
+        assert_eq!(self.threads_running.load(atomic::Ordering::Relaxed), 0);
+
         let hostname = nix::unistd::gethostname()
             .expect("Error getting hostname")
             .into_string().expect("Failed to convert hostname to string");
@@ -130,7 +133,7 @@ impl BufferSet {
                 nix::unistd::SysconfVar::_NPROCESSORS_CONF
             ) {
                 Ok(Some(value)) => value,
-                _ => panic!("Error getting the number of cores"),
+                _ => panic!("Error getting the system number of cores"),
             }
         };
 
@@ -138,7 +141,7 @@ impl BufferSet {
 
         // Lets be paranoic
         assert_eq!(
-            self.threadid_map.read().expect("Error getting threadid_map read lock;").len(),
+            self.threadid_map.read().expect("Error getting threadid_map read lock").len(),
             nthreads as usize,
             "The number of thread ids does not match with the total stored in the threadid_map"
         );

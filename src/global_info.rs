@@ -45,10 +45,8 @@ impl GlobalInfo {
         }
     }
 
-    fn finalize(&self) {
-
-        //assert_eq!(self.buffer_set.thread_running, 0);
-
+    fn finalize(&self)
+    {
         println!("Finalizing profiler");
 
         let output_path = self.buffer_set.trace_directory_path.as_path();
@@ -60,9 +58,9 @@ impl GlobalInfo {
             .create_pcf(output_path)
             .expect("Error creating PCF file");
 
-        Merger::new(output_path)
-            .create_prv()
-            .expect("Error creating the prv trace");
+        Merger::new(output_path)      // path to read from
+            .create_prv(output_path)  // path to write to
+            .expect("Error creating PRV file");
 
         println!("# Profiler TraceDir: {}", output_path.to_str().unwrap());
     }
@@ -96,8 +94,13 @@ impl GlobalInfo {
         }
     }
 
-    // This requires mutable access to the variable.
-    pub(crate) fn save_buffer_id(buffer: &crate::buffer::Buffer)
+    /// This requires mutable access to the variable.
+    /// It saves the buffer id in the map set and discounts the running
+    /// thread track variables.
+    /// When the number of running threads is zero this also calls the
+    /// finalize function to write all the output files and performs the
+    /// merge+write
+    pub(crate) fn notify_thread_finalized(buffer: &crate::buffer::Buffer)
     {
         unsafe {
             let remaining_threads = INFO
@@ -106,7 +109,7 @@ impl GlobalInfo {
                 .buffer_set
                 .save_buffer_id(&buffer);
 
-            // remaining_threads is zero when the main thread exits,
+            // remaining_threads is zero when the main thread is exiting,
             // so it is the last and we can exit.
             // The running threads counter is in the buffer_set for
             // not a very good reason

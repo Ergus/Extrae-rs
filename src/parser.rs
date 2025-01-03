@@ -141,9 +141,12 @@ impl Merger {
             .collect()
     }
 
-    pub(crate) fn create_prv(&self) -> std::io::Result<()>
+    // This creates a Paraver trace from the merged information.
+    pub(crate) fn create_prv(&self, trace_dir: &std::path::Path) -> std::io::Result<()>
     {
-        let file = std::fs::File::create(self.dir_path.join("Trace.prv"))?;
+        assert!(!self.events.is_empty(), "The events list is empty");
+
+        let file = std::fs::File::create(trace_dir.join("Trace.prv"))?;
         let mut writer = std::io::BufWriter::new(file);
 
         // Convert u64 timestamp to DateTime<Utc>

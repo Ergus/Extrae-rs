@@ -26,7 +26,7 @@ impl Drop for ThreadInfo {
     fn drop(&mut self) {
         self.buffer_events.emplace_event(GlobalInfo::as_ref().thread_event_id, 0);
         self.buffer_events.flush().expect("Failed to flush buffer data");
-        GlobalInfo::save_buffer_id(&self.buffer_events);
+        GlobalInfo::notify_thread_finalized(&self.buffer_events);
     }
 }
 
