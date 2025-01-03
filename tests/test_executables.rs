@@ -1,7 +1,14 @@
 use std::process::Command;
 
+use std::sync::Mutex;
+
+// Static Mutex for synchronization
+static TEST_MUTEX: Mutex<()> = Mutex::new(());
+
 fn test_program(executable: &str)
 {
+     let _lock = TEST_MUTEX.lock().unwrap();
+
     let output = Command::new(executable)
         .output()
         .expect("Failed to execute program_procedural");
@@ -27,7 +34,6 @@ fn test_program(executable: &str)
 
     #[cfg(not(feature = "profiling"))]
     assert!(!stdout.contains("# Profiler TraceDir: "), "Unexpected stdout: \n---- \n{}---- \n", stdout);
-
 }
 
 
