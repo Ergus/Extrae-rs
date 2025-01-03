@@ -93,10 +93,26 @@ impl std::fmt::Display for ExtendedEvent {
 struct Merger
 {
     dir_path: std::path::PathBuf,
-    file_paths: Vec<std::path::PathBuf>
+    file_paths: Vec<std::path::PathBuf>,
+    events: Vec<ExtendedEvent>,
+    threads: std::collections::BTreeSet<u32>,
+    cores: std::collections::BTreeSet<u16>
 }
 
 impl Merger {
+
+    fn new(dir: &std::path::Path) -> Self
+    {
+        let file_paths = Merger::get_files_with_extension(dir, "bin");
+        let (events, threads, cores) = Merger::merge_files(&file_paths);
+
+        Self {
+            dir_path: std::path::PathBuf::from(dir),
+            file_paths,
+            events, threads, cores
+        }
+    }
+
 
     /// Get a vector of paths for all the files with a given extension.
     fn get_files_with_extension(
@@ -120,23 +136,37 @@ impl Merger {
             .collect()
     }
 
-    fn new(dir: &std::path::Path) -> Self
-    {
-        Self {
-            dir_path: std::path::PathBuf::from(dir),
-            file_paths: Merger::get_files_with_extension(dir, "bin"),
-        }
-    }
 
-    fn merge_files(&self)
-    {
-        let file = std::fs::File::create(self.dir_path.join("Trace.prv")).unwrap();
-        let mut writer = std::io::BufWriter::new(file);
-
+    /// This function merges multiple trace files into a single
+    /// sequential buffer.  The entries in the output are sorted by
+    /// the entry timestamp and consecutive events with same timestamp
+    /// from the same thread are grouped.
+    ///
+    /// The parsing process uses a new method totally different from
+    /// the ones in ExtraeWin (loading the files in memory and merging
+    /// by pairs)
+    ///
+    /// This function instead opens all the trace files
+    /// simultaneously.  The first entries in every thread are saved
+    /// in a reversed priority queue (BinaryHeap) with 1
+    /// entry/thread.
+    ///
+    /// The principal loop requests the next entry from the BinaryHeap
+    /// (the one with the lower timestamp) and restores it with the
+    /// next one from the same trace file.
+    ///
+    /// The TraceIterator class use std::io::BufReader to reduce
+    /// system call and improve read speed.
+    fn merge_files(
+        file_paths: &Vec<std::path::PathBuf>
+    ) -> (Vec<ExtendedEvent>,
+          std::collections::BTreeSet<u32>,
+          std::collections::BTreeSet<u16>
+    ) {
         let mut heap = std::collections::BinaryHeap::new();
 
         let mut trace_iters: Vec<_>
-            = self.file_paths
+            = file_paths
                 .iter()
                 .map(|path| TraceIterator::open(path.as_path()))
                 .collect();
@@ -145,6 +175,11 @@ impl Merger {
 
         let all_equal = trace_iters.windows(2).all(|pair| pair[0].header.start_gtime == pair[1].header.start_gtime);
         assert!(all_equal, "Some global time differs in trace headers");
+
+        let mut events = Vec::<ExtendedEvent>::with_capacity(total_events as usize);
+        let mut cores = std::collections::BTreeSet::<u16>::new();
+        let threads: std::collections::BTreeSet::<u32>
+            = trace_iters.iter().map(|item| item.header.id).collect();
 
         let mut counter = 0;
 
@@ -168,13 +203,13 @@ impl Merger {
                     heap.push(std::cmp::Reverse((next_entry, index)));
                 }
             }
-
-            writeln!(writer,"{}", ext_entry).unwrap();
+            cores.insert(ext_entry.core);
+            events.push(ext_entry);
         }
 
         assert_eq!(total_events, counter);
+
+        (events, threads, cores)
     }
-
-
 }
 

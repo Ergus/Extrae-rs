@@ -13,6 +13,8 @@ pub use thread_info::ThreadInfo;
 mod profiler;
 pub use profiler::Guard;
 
+mod parser;
+
 #[macro_export]
 macro_rules! instrument_function {
     () => {
