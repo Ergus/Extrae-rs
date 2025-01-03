@@ -4,6 +4,8 @@ use std::io::{Read, Write};
 use std::fs::File;
 use std::iter::Iterator;
 
+use chrono::TimeZone;
+
 use crate::buffer;
 
 // Iterator for the array inside the file.
@@ -96,7 +98,8 @@ struct Merger
     file_paths: Vec<std::path::PathBuf>,
     events: Vec<ExtendedEvent>,
     threads: std::collections::BTreeSet<u32>,
-    cores: std::collections::BTreeSet<u16>
+    cores: std::collections::BTreeSet<u16>,
+    start_global_time: u64
 }
 
 impl Merger {
@@ -104,17 +107,19 @@ impl Merger {
     fn new(dir: &std::path::Path) -> Self
     {
         let file_paths = Merger::get_files_with_extension(dir, "bin");
-        let (events, threads, cores) = Merger::merge_files(&file_paths);
+        let (events, threads, cores, start_global_time)
+            = Merger::merge_files(&file_paths);
 
         Self {
             dir_path: std::path::PathBuf::from(dir),
             file_paths,
-            events, threads, cores
+            events, threads, cores, start_global_time
         }
     }
 
 
-    /// Get a vector of paths for all the files with a given extension.
+    /// Get a vector of paths for all the files with a given extension
+    /// inside the given path.
     fn get_files_with_extension(
         dir: &std::path::Path,
         extension: &str
@@ -134,6 +139,20 @@ impl Merger {
                 }
             )
             .collect()
+    }
+
+
+    fn get_paraver_header(&self) -> String
+    {
+        let elapsed = self.events.last().unwrap().time - self.events.first().unwrap().time;
+
+        // Convert u64 timestamp to DateTime<Utc>
+        let datetime: chrono::DateTime<chrono::Local>
+            = chrono::Local.timestamp_opt(self.start_global_time as i64, 0).unwrap();
+
+        format!("#Paraver ({}):{}_ns:1({}):1:1({}:1)",
+            datetime.format("%d/%m/%Y at %H:%M"),
+            elapsed, self.cores.len(), self.threads.len())
     }
 
 
@@ -161,7 +180,8 @@ impl Merger {
         file_paths: &Vec<std::path::PathBuf>
     ) -> (Vec<ExtendedEvent>,
           std::collections::BTreeSet<u32>,
-          std::collections::BTreeSet<u16>
+          std::collections::BTreeSet<u16>,
+          u64
     ) {
         let mut heap = std::collections::BinaryHeap::new();
 
@@ -175,6 +195,8 @@ impl Merger {
 
         let all_equal = trace_iters.windows(2).all(|pair| pair[0].header.start_gtime == pair[1].header.start_gtime);
         assert!(all_equal, "Some global time differs in trace headers");
+
+        let start_time: u64 = trace_iters[0].header.start_gtime;
 
         let mut events = Vec::<ExtendedEvent>::with_capacity(total_events as usize);
         let mut cores = std::collections::BTreeSet::<u16>::new();
@@ -209,7 +231,7 @@ impl Merger {
 
         assert_eq!(total_events, counter);
 
-        (events, threads, cores)
+        (events, threads, cores, start_time)
     }
 }
 
