@@ -108,6 +108,8 @@ impl GlobalInfo {
 
             // remaining_threads is zero when the main thread exits,
             // so it is the last and we can exit.
+            // The running threads counter is in the buffer_set for
+            // not a very good reason
             if remaining_threads == 0 {
                 INFO.as_ref().unwrap().finalize();
             }

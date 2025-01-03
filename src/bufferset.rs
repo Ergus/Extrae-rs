@@ -23,7 +23,7 @@ use crate::buffer;
 /// are destructed after the main thread; but in MSWindows the Global
 /// variables seems to be removed before the main thread completes.
 pub struct BufferSet {
-    events_map: Arc<RwLock<HashMap<ThreadId, u32>>>,
+    threadid_map: Arc<RwLock<HashMap<ThreadId, u32>>>,
     threads_counter: atomic::AtomicU32,
     threads_running: atomic::AtomicU32,
 
@@ -38,7 +38,7 @@ impl BufferSet {
         trace_directory_path: std::path::PathBuf
     ) -> Self {
         Self {
-            events_map: Arc::new(RwLock::new(HashMap::new())),
+            threadid_map: Arc::new(RwLock::new(HashMap::new())),
             threads_counter: atomic::AtomicU32::new(0),
             threads_running: atomic::AtomicU32::new(0),
             start_system_time,
@@ -70,9 +70,9 @@ impl BufferSet {
         // needs to be atomic because it is modified with the read
         // lock taken (not the write)
         let id: u32 = {
-            match self.events_map
+            match self.threadid_map
                 .read()
-                .expect("Failed to get events_map read lock")
+                .expect("Failed to get threadid_map read lock")
                 .get(&tid) {
                     Some(&value) => value,
                     None => self.threads_counter.fetch_add(1, atomic::Ordering::Relaxed) + 1,
@@ -99,9 +99,9 @@ impl BufferSet {
     /// is to register new ids.
     pub fn save_buffer_id(&mut self, buffer: &buffer::Buffer) -> u32
     {
-        match self.events_map
+        match self.threadid_map
             .write()
-            .expect("Failed to get events_map lock")
+            .expect("Failed to get threadid_map write lock")
             .entry(buffer.tid()) {
                 Entry::Occupied(entry) => {
                     assert_eq!(entry.get(), &buffer.id());
@@ -124,6 +124,7 @@ impl BufferSet {
             .expect("Error getting hostname")
             .into_string().expect("Failed to convert hostname to string");
 
+        // Get the total number of cores in the system
         let ncores = {
             match nix::unistd::sysconf(
                 nix::unistd::SysconfVar::_NPROCESSORS_CONF
@@ -134,6 +135,13 @@ impl BufferSet {
         };
 
         let nthreads = self.threads_counter.load(atomic::Ordering::Relaxed);
+
+        // Lets be paranoic
+        assert_eq!(
+            self.threadid_map.read().expect("Error getting threadid_map read lock;").len(),
+            nthreads as usize,
+            "The number of thread ids does not match with the total stored in the threadid_map"
+        );
 
         let rowfile = std::fs::File::create(trace_dir.join("Trace.row")).unwrap();
         let mut writer = std::io::BufWriter::new(rowfile);
