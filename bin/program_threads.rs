@@ -14,7 +14,6 @@ fn myfunction2(i: u32) -> u32
     i
 }
 
-#[profile]
 fn main() -> nix::Result<()>
 {
     println!("Start Program");

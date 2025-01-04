@@ -61,15 +61,13 @@ impl GlobalInfo {
     fn finalize_buffer(&mut self, buffer: &buffer::Buffer)
     {
         self.buffer_set.save_buffer_id(&buffer);
+        self.threads_running.fetch_sub(1, atomic::Ordering::Relaxed);
 
-        if self.threads_running.fetch_sub(1, atomic::Ordering::Relaxed) == 1 {
-            // remaining_threads is zero when the main thread is exiting,
-            // so it is the last and we can exit.
-            // The running threads counter is in the buffer_set for
-            // not a very good reason
+        // Call finalize if this is the main thread.
+        if crate::ThreadInfo::is_main() {
+            assert_eq!(self.threads_running.load(atomic::Ordering::Relaxed), 0);
             self.finalize();
         }
-
     }
 
     fn finalize(&self)

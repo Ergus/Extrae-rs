@@ -3,8 +3,9 @@
 use crate::global_info::GlobalInfo; 
 
 pub struct ThreadInfo {
-    id: u32,
     tid: std::thread::ThreadId,
+    id: u32,
+    is_main: bool,
     buffer_events: crate::buffer::Buffer,
 }
 
@@ -12,13 +13,17 @@ impl ThreadInfo {
 
     fn new() -> Self
     {
-        let tid = std::thread::current().id();
+        let thread: std::thread::Thread = std::thread::current();
+
+        let tid = thread.id();
+        let is_main = thread.name().is_some_and(|x| x == "main");
+
         let mut buffer_events = GlobalInfo::get_thread_buffer(tid);
         let id = buffer_events.id();
 
         buffer_events.emplace_event(GlobalInfo::as_ref().thread_event_id, 1);
 
-        Self { tid, id, buffer_events }
+        Self { tid, id, is_main, buffer_events }
     }
 }
 
@@ -37,6 +42,12 @@ impl ThreadInfo {
         static THREAD_INFO: ThreadInfo = ThreadInfo::new();
     }
 
+    pub fn is_main() -> bool
+    {
+        ThreadInfo::THREAD_INFO.with(|info| {info.is_main})
+
+    }
+
     pub fn emplace_event(id: u16, value: u32)
     {
         ThreadInfo::THREAD_INFO.with(|info| {
@@ -46,5 +57,4 @@ impl ThreadInfo {
             }
         })
     }
-
 }
