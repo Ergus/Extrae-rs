@@ -1,11 +1,15 @@
 #![allow(dead_code)]
 
-use crate::Merger;
+use std::sync::atomic;
+
+use crate::{Merger,buffer};
 
 pub struct GlobalInfo {
 
     buffer_set: crate::bufferset::BufferSet,
     name_set: crate::nameset::NameSet,
+
+    threads_running: atomic::AtomicU32,
 
     pub thread_event_id: u16,
 }
@@ -41,8 +45,31 @@ impl GlobalInfo {
         Self {
             buffer_set,
             name_set,
+
+            threads_running: atomic::AtomicU32::new(0),
+
             thread_event_id
         }
+    }
+
+    fn init_buffer(&mut self, tid: std::thread::ThreadId) -> buffer::Buffer
+    {
+        self.threads_running.fetch_add(1, atomic::Ordering::Relaxed);
+        self.buffer_set.get_buffer(tid)
+    }
+
+    fn finalize_buffer(&mut self, buffer: &buffer::Buffer)
+    {
+        self.buffer_set.save_buffer_id(&buffer);
+
+        if self.threads_running.fetch_sub(1, atomic::Ordering::Relaxed) == 1 {
+            // remaining_threads is zero when the main thread is exiting,
+            // so it is the last and we can exit.
+            // The running threads counter is in the buffer_set for
+            // not a very good reason
+            self.finalize();
+        }
+
     }
 
     fn finalize(&self)
@@ -87,11 +114,11 @@ impl GlobalInfo {
     /// Get a buffer for this thread.
     /// The buffer may be created now or maybe recovered from a previous save.
     /// This requires mutable access to the variable.
-    pub(crate) fn get_buffer(tid: std::thread::ThreadId) -> crate::buffer::Buffer
+    pub(crate) fn get_thread_buffer(tid: std::thread::ThreadId) -> crate::buffer::Buffer
     {
         unsafe {
-            INFO.get_or_insert_with(|| GlobalInfo::new()).buffer_set.get_buffer(tid)
-        }
+            INFO.get_or_insert_with(|| GlobalInfo::new())
+        }.init_buffer(tid)
     }
 
     /// This requires mutable access to the variable.
@@ -103,20 +130,9 @@ impl GlobalInfo {
     pub(crate) fn notify_thread_finalized(buffer: &crate::buffer::Buffer)
     {
         unsafe {
-            let remaining_threads = INFO
-                .as_mut()
+            INFO.as_mut()
                 .expect("Global info not set when called save_buffer_id")
-                .buffer_set
-                .save_buffer_id(&buffer);
-
-            // remaining_threads is zero when the main thread is exiting,
-            // so it is the last and we can exit.
-            // The running threads counter is in the buffer_set for
-            // not a very good reason
-            if remaining_threads == 0 {
-                INFO.as_ref().unwrap().finalize();
-            }
-        }
+        }.finalize_buffer(buffer);
     }
 
     pub fn register_event_name(

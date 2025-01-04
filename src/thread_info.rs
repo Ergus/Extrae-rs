@@ -13,7 +13,7 @@ impl ThreadInfo {
     fn new() -> Self
     {
         let tid = std::thread::current().id();
-        let mut buffer_events = GlobalInfo::get_buffer(tid);
+        let mut buffer_events = GlobalInfo::get_thread_buffer(tid);
         let id = buffer_events.id();
 
         buffer_events.emplace_event(GlobalInfo::as_ref().thread_event_id, 1);

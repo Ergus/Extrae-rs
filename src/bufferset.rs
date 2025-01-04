@@ -25,7 +25,6 @@ use crate::buffer;
 pub struct BufferSet {
     threadid_map: Arc<RwLock<HashMap<ThreadId, u32>>>,
     threads_counter: atomic::AtomicU32,
-    threads_running: atomic::AtomicU32,
 
     pub(crate) start_system_time: std::time::Duration,
     pub(crate) trace_directory_path: std::path::PathBuf,
@@ -40,7 +39,6 @@ impl BufferSet {
         Self {
             threadid_map: Arc::new(RwLock::new(HashMap::new())),
             threads_counter: atomic::AtomicU32::new(0),
-            threads_running: atomic::AtomicU32::new(0),
             start_system_time,
             trace_directory_path
         }
@@ -79,7 +77,7 @@ impl BufferSet {
                 }
         };
 
-        self.threads_running.fetch_add(1, atomic::Ordering::Relaxed);
+        println!(" Creating: {} {:?}", id, tid);
 
         buffer::Buffer::new(
             id,
@@ -97,8 +95,9 @@ impl BufferSet {
     /// are the same of the incoming buffer.
     /// This function takes the write lock as the most frequent action
     /// is to register new ids.
-    pub fn save_buffer_id(&mut self, buffer: &buffer::Buffer) -> u32
+    pub fn save_buffer_id(&mut self, buffer: &buffer::Buffer)
     {
+        println!(" Disposing: {} {:?}", buffer.id(), buffer.tid());
         match self.threadid_map
             .write()
             .expect("Failed to get threadid_map write lock")
@@ -108,21 +107,13 @@ impl BufferSet {
                 },
                 Entry::Vacant(entry) => {
                     entry.insert(buffer.id());
-                    self.threads_running.fetch_sub(1, atomic::Ordering::Relaxed);
                 }
             };
-
-        // The thread counter is in the worst possible place (here)
-        // But that's because this is the safest possible place.
-        self.threads_running.load(atomic::Ordering::Relaxed)
     }
 
     /// Write the trace.row file on exit.
     pub fn create_row(&self, trace_dir: &std::path::Path) -> std::io::Result<()>
     {
-        // Yes I am a bit paranoic.
-        assert_eq!(self.threads_running.load(atomic::Ordering::Relaxed), 0);
-
         let hostname = nix::unistd::gethostname()
             .expect("Error getting hostname")
             .into_string().expect("Failed to convert hostname to string");
@@ -138,6 +129,13 @@ impl BufferSet {
         };
 
         let nthreads = self.threads_counter.load(atomic::Ordering::Relaxed);
+
+        if self.threadid_map.read().expect("Error getting threadid_map read lock").len()
+            != nthreads as usize {
+                panic!("Error: {:?} != {}",
+                self.threadid_map.read().expect("Error getting threadid_map read lock")
+                , nthreads);
+            }
 
         // Lets be paranoic
         assert_eq!(
