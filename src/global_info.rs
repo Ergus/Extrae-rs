@@ -52,10 +52,10 @@ impl GlobalInfo {
         }
     }
 
-    fn init_buffer(&mut self, tid: std::thread::ThreadId) -> buffer::Buffer
+    fn init_buffer(&mut self, tid: std::thread::ThreadId, name: &str) -> buffer::Buffer
     {
         self.threads_running.fetch_add(1, atomic::Ordering::Relaxed);
-        self.buffer_set.get_buffer(tid)
+        self.buffer_set.get_buffer(tid, name)
     }
 
     fn finalize_buffer(&mut self, buffer: &buffer::Buffer)
@@ -64,7 +64,7 @@ impl GlobalInfo {
         self.threads_running.fetch_sub(1, atomic::Ordering::Relaxed);
 
         // Call finalize if this is the main thread.
-        if crate::ThreadInfo::is_main() {
+        if buffer.name() == "main" {
             assert_eq!(self.threads_running.load(atomic::Ordering::Relaxed), 0);
             self.finalize();
         }
@@ -112,11 +112,11 @@ impl GlobalInfo {
     /// Get a buffer for this thread.
     /// The buffer may be created now or maybe recovered from a previous save.
     /// This requires mutable access to the variable.
-    pub(crate) fn get_thread_buffer(tid: std::thread::ThreadId) -> crate::buffer::Buffer
+    pub(crate) fn get_thread_buffer(tid: std::thread::ThreadId, name: &str) -> crate::buffer::Buffer
     {
         unsafe {
             INFO.get_or_insert_with(|| GlobalInfo::new())
-        }.init_buffer(tid)
+        }.init_buffer(tid, name)
     }
 
     /// This requires mutable access to the variable.

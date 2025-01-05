@@ -232,6 +232,7 @@ impl std::fmt::Display for BufferInfo {
 }
 
 pub struct Buffer {
+    name: String,
     path: std::path::PathBuf,
     file: Option<std::fs::File>,
     info: BufferInfo,
@@ -242,10 +243,12 @@ impl Buffer {
     pub fn new(
         id: u32,
         tid: &std::thread::ThreadId,
+        name: &str,
         path: std::path::PathBuf,
         start_gtime: &std::time::Duration
     ) -> Self {
         Self {
+            name: name.to_string(),
             path,
             file: None,
             info: BufferInfo::new(id, &tid, &start_gtime)
@@ -262,14 +265,19 @@ impl Buffer {
         self.info.header.tid
     }
 
+    pub fn name(&self) -> &str
+    {
+        self.name.as_str()
+    }
 
     fn from_path(path: std::path::PathBuf) -> Self
     {
         let mut file = std::fs::File::open(&path).unwrap();
+        let name = path.as_os_str().to_str().unwrap().to_string();
 
         let info = BufferInfo::from_file(&mut file);
 
-        Self { path, file: None, info }
+        Self { name, path, file: None, info }
     }
 
 
@@ -373,6 +381,7 @@ mod profiler{
         let mut buff = Buffer::new(
             1,
             &std::thread::current().id(),
+            "",
             path.clone(),
             &std::time::Duration::default()
         );
@@ -394,6 +403,7 @@ mod profiler{
         let buff = Buffer::new(
             1,
             &std::thread::current().id(),
+            "",
             path.clone(),
             &std::time::Duration::default()
         );
@@ -413,6 +423,7 @@ mod profiler{
         let mut buff = Buffer::new(
             1,
             &std::thread::current().id(),
+            "",
             path.clone(),
             &std::time::Duration::default()
         );
@@ -454,6 +465,7 @@ mod profiler{
             let mut buff = Buffer::new(
                 1,
                 &std::thread::current().id(),
+                "",
                 path.clone(),
                 &std::time::Duration::default()
             );

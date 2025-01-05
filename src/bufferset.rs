@@ -61,8 +61,10 @@ impl BufferSet {
     /// increased.
     /// The map only adds new values on thread destruction to "remember"
     /// in the future if it sees the same thread id again.
-    pub fn get_buffer(&mut self, tid: std::thread::ThreadId) -> buffer::Buffer
-    {
+    pub fn get_buffer(
+        &mut self, tid: std::thread::ThreadId,
+        name: &str
+    ) -> buffer::Buffer {
         // We attempt to take the read lock only to check if the id
         // exists and release it immediately.  The thread counted
         // needs to be atomic because it is modified with the read
@@ -82,6 +84,7 @@ impl BufferSet {
         buffer::Buffer::new(
             id,
             &tid,
+            name,
             self.trace_directory_path.join(format!("Trace_{}.bin", id)),
             &self.start_system_time
         )
