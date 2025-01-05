@@ -1,13 +1,13 @@
-use extrae_rs::profile;
+use extrae_rs::extrae_profile;
 
-#[profile]
+#[extrae_profile]
 fn myfunction1(i: u32) -> u32
 {
     std::thread::sleep(std::time::Duration::from_millis(10));
     i
 }
 
-#[profile]
+#[extrae_profile]
 fn myfunction2(i: u32) -> u32
 {
     std::thread::sleep(std::time::Duration::from_millis(10));

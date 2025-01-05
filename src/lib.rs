@@ -71,4 +71,4 @@ macro_rules! instrument_update {
 }
 
 // Re-export the macro. This is essential for users of your library
-pub use extrae_macros::profile;
+pub use extrae_macros::extrae_profile;

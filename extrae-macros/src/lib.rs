@@ -35,7 +35,7 @@ impl ProfileAttr {
 }
 
 #[proc_macro_attribute]
-pub fn profile(args: TokenStream, item: TokenStream) -> TokenStream
+pub fn extrae_profile(args: TokenStream, item: TokenStream) -> TokenStream
 {
     let input_fn = parse_macro_input!(item as ItemFn);
 

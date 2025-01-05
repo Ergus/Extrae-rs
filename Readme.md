@@ -44,19 +44,19 @@ fn myfunction3()
 
 ```rust
 
-#[profile]
+#[extrae_profile]
 fn myfunction()
 {
     // Some code
 }
 
-#[profile(name="MyFunction2_manual")]
+#[extrae_profile(name="MyFunction2_manual")]
 fn myfunction2()
 {
     // Some code
 }
 
-#[profile(name="MyFunction3_manual_value_20",value=20)]
+#[extrae_profile(name="MyFunction3_manual_value_20",value=20)]
 fn myfunction3()
 {
     // Some code

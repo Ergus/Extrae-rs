@@ -1,18 +1,18 @@
-use extrae_rs::profile;
+use extrae_rs::extrae_profile;
 
-#[profile]
+#[extrae_profile]
 fn myfunction()
 {
     std::thread::sleep(std::time::Duration::from_millis(10));
 }
 
-#[profile(name="MyFunction2_manual")]
+#[extrae_profile(name="MyFunction2_manual")]
 fn myfunction2()
 {
     std::thread::sleep(std::time::Duration::from_millis(10));
 }
 
-#[profile(name="MyFunction3_manual_value_20",value=20)]
+#[extrae_profile(name="MyFunction3_manual_value_20",value=20)]
 fn myfunction3() -> u32
 {
     std::thread::sleep(std::time::Duration::from_millis(10));
