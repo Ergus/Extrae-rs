@@ -16,6 +16,9 @@ pub use profiler::Guard;
 mod parser;
 pub(crate) use parser::Merger;
 
+mod subscriber;
+pub use subscriber::ExtraeSubscriber;
+
 #[macro_export]
 macro_rules! instrument_function {
     () => {
