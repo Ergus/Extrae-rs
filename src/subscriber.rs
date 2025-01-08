@@ -1,14 +1,29 @@
 #![allow(dead_code)]
 
 use tracing::{span, Event, Metadata, Subscriber};
+use std::collections::HashMap;
+use std::sync::{Arc, RwLock};
+
 
 pub struct ExtraeSubscriber {
+    subscriber_id: u16,
+    spans: Arc<RwLock<HashMap<String, u16>>>, // Store span IDs and names
 }
 
 impl ExtraeSubscriber {
-    fn new() -> Self {
-        let _ = crate::GlobalInfo::as_ref();
-        Self {}
+    pub fn new() -> Self {
+        let subscriber_id = crate::GlobalInfo::register_event_name("subscriber_created", "", 0, 0);
+        crate::ThreadInfo::emplace_event(subscriber_id, 1);
+        Self {
+            subscriber_id,
+            spans: Arc::new(RwLock::new(HashMap::new())),
+        }
+    }
+}
+
+impl Drop for ExtraeSubscriber {
+    fn drop(&mut self) {
+        crate::ThreadInfo::emplace_event(self.subscriber_id, 0);
     }
 }
 
@@ -25,9 +40,19 @@ impl Subscriber for ExtraeSubscriber {
         let file = attrs.metadata().file().or(Some("Unknown")).unwrap();
         let line = attrs.metadata().line().or(Some(0)).unwrap();
 
-        let id = crate::GlobalInfo::register_event_name(name, file, line, 0);
+        let read_lock = self.spans.read().expect("Couldn't get read subscriber");
 
-        println!("New span created: {} with ID {:?}", name, id);
+        let id: u16 = match read_lock.get(name) {
+                Some(id) => *id,
+                None => {
+                    drop(read_lock);
+
+                    let id = crate::GlobalInfo::register_event_name(name, file, line, 0);
+                    self.spans.write().expect("Couldn't get write subscriber").insert(name.to_string(), id);
+                    id
+                },
+            };
+
         span::Id::from_u64(id.into())
 
     }
@@ -54,6 +79,11 @@ impl Subscriber for ExtraeSubscriber {
     }
 
     fn exit(&self, id: &span::Id) {
-        crate::ThreadInfo::emplace_event(id.into_u64() as u16, 1);
+        crate::ThreadInfo::emplace_event(id.into_u64() as u16, 0);
     }
+}
+
+
+#[cfg(test)]
+mod tests {
 }

@@ -54,3 +54,9 @@ fn test_program_procedural()
 {
     test_program(env!("CARGO_BIN_EXE_program_procedural"));
 }
+
+#[test]
+fn test_program_tokio()
+{
+    test_program(env!("CARGO_BIN_EXE_program_tokio"));
+}
