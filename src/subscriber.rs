@@ -70,8 +70,6 @@ impl ExtraeSubscriber {
 
 impl Subscriber for ExtraeSubscriber {
     fn enabled(&self, _: &Metadata<'_>) -> bool {
-        // Decide whether this metadata should be recorded
-        //metadata.level() <= &tracing::Level::INFO
         true
     }
 
@@ -95,8 +93,31 @@ impl Subscriber for ExtraeSubscriber {
         span::Id::from_u64(id.into())
     }
 
-    fn record(&self, _: &span::Id, _: &span::Record<'_>) {
-        // Handle span updates
+    fn record(&self, _id: &span::Id, _values: &span::Record)
+    {
+        // let mut visitor = EventVisitor::default();
+        // values.record(&mut visitor);
+
+        // let event: u16 = id.into_u64() as u16;
+
+        // let value: u32 = visitor.value.expect("Record requires a value in the record! call");
+
+        // match crate::GlobalInfo::get_event_value_info(event, Some(value)) {
+        //     Some(info) => {
+        //         assert_eq!(info.name, visitor.message.unwrap_or("".to_string()));
+        //     },
+        //     None => {
+        //         crate::GlobalInfo::register_event_value_name(
+        //             visitor.message.unwrap_or("".to_string()).as_str(),
+        //             None,
+        //             None,
+        //             event,
+        //             Some(value)
+        //         );
+        //     }
+        // };
+
+        // crate::ThreadInfo::emplace_event(event, value);
     }
 
     fn record_follows_from(&self, _: &span::Id, _: &span::Id) {
@@ -108,7 +129,6 @@ impl Subscriber for ExtraeSubscriber {
     /// tokio_event_id.
     /// The event value can be specified with the value keyword-key:
     /// info!(value = 5, "My event message")
-    /// 
     fn event(&self, event: &Event<'_>) {
 
         let mut visitor = EventVisitor::default();

@@ -9,9 +9,11 @@ use std::collections::btree_map::Entry;
 
 /// A struct representing information about a name, including its file
 /// path and line number.
+/// This structure represents the entries for events and values
+/// individually and is the needed information to generate the pcf
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct NameInfo {
-    name: String,
+    pub(crate) name: String,
     path: std::path::PathBuf,
     line: u32
 }
@@ -270,6 +272,16 @@ mod nameset{
         val = name_set.register_event_name("Event1.1", Some("File1"), Some(0), Some(2));
         assert_eq!(val, 5);
 
+        assert!(name_set.get_event_value_info(1, None).is_some_and(|info| info.name == "Event1"));
+        assert!(name_set.get_event_value_info(2, None).is_some_and(|info| info.name == "Event2"));
+        assert!(name_set.get_event_value_info(3, None).is_some_and(|info| info.name == "Event3"));
+
+        assert!(name_set.get_event_value_info(8, None).is_some_and(|info| info.name == "Event8.1"));
+        assert!(name_set.get_event_value_info(9, None).is_some_and(|info| info.name == "Event8.2"));
+        assert!(name_set.get_event_value_info(10, None).is_some_and(|info| info.name == "Event8.3"));
+
+        assert!(name_set.get_event_value_info(4, None).is_some_and(|info| info.name == "Event1.1"));
+        assert!(name_set.get_event_value_info(5, None).is_some_and(|info| info.name == "Event1.1"));
 
     }
 
@@ -289,6 +301,10 @@ mod nameset{
 
         val = name_set.register_event_value_name("Value3", Some("File1"), None, 1, Some(3));
         assert_eq!(val, 3);
+
+        assert!(name_set.get_event_value_info(1, Some(1)).is_some_and(|info| info.name == "Value1"));
+        assert!(name_set.get_event_value_info(1, Some(2)).is_some_and(|info| info.name == "Value2"));
+        assert!(name_set.get_event_value_info(1, Some(3)).is_some_and(|info| info.name == "Value3"));
     }
 
 
