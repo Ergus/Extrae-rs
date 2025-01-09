@@ -4,6 +4,17 @@ use tracing::{span, Event, Metadata, Subscriber};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
+use crate::GlobalInfo;
+
+/// This is a helper container protected with an rwlock.
+/// The main goal for this class is that the new entries requires to
+/// take the write lock. But the most frequent accesses are read
+/// operations that require only the read lock.
+/// The default operation for this is usually get().or_insert(). which
+/// enforces to take the write lock.
+/// This class only takes the write lock when a new entry will be inserted.
+/// But the check is only with the read lock, which significantly
+/// reduces overhead.
 #[derive(Default)]
 struct SubscriberContainer<K, V, S =  std::hash::RandomState> {
     rwmap: Arc<RwLock<HashMap<K, V, S>>>, // Store span IDs and names
@@ -37,9 +48,11 @@ impl<K: Eq + std::hash::Hash + Clone,
     }
 }
 
-
+/// Implement a tracing subscriber to emit extrae events.
+/// The subscriber is useful because the tokio crate is already integrated
+/// with the tracing crate and emit events when a task starts and end,
+/// but this also works with the tracing defined macros.
 pub struct ExtraeSubscriber {
-    subscriber_id: u16,
     tokio_event_id: u16,
     spans: SubscriberContainer<String, u16>,
     events: SubscriberContainer<String, u32>,
@@ -47,22 +60,13 @@ pub struct ExtraeSubscriber {
 
 impl ExtraeSubscriber {
     pub fn new() -> Self {
-        let subscriber_id = crate::GlobalInfo::register_event_name("subscriber_created", None, None, None);
         let tokio_event_id = crate::GlobalInfo::register_event_name("tokio_event", None, None, None);
-        crate::ThreadInfo::emplace_event(subscriber_id, 1);
+        crate::ThreadInfo::init();
         Self {
-            subscriber_id,
             tokio_event_id,
             spans: SubscriberContainer::default(),
             events: SubscriberContainer::default(),
         }
-    }
-}
-
-impl Drop for ExtraeSubscriber {
-    // This code is actually never called.
-    fn drop(&mut self) {
-        crate::ThreadInfo::emplace_event(self.subscriber_id, 0);
     }
 }
 
@@ -73,6 +77,7 @@ impl Subscriber for ExtraeSubscriber {
         true
     }
 
+    /// Get the span id from
     fn new_span(&self, attrs: &span::Attributes<'_>) -> span::Id {
 
         let name = attrs.metadata().name().to_string();
@@ -100,6 +105,12 @@ impl Subscriber for ExtraeSubscriber {
         // Handle parent/child relationships
     }
 
+    /// This is emitted with the info! macro
+    /// Every event receives a value id and is emitted with the
+    /// tokio_event_id.
+    /// The event value can be specified with the value keyword-key:
+    /// info!(value = 5, "My event message")
+    /// 
     fn event(&self, event: &Event<'_>) {
 
         let mut visitor = EventVisitor::default();
