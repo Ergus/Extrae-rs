@@ -4,24 +4,63 @@ use tracing::{span, Event, Metadata, Subscriber};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
+#[derive(Default)]
+struct SubscriberContainer<K, V, S =  std::hash::RandomState> {
+    rwmap: Arc<RwLock<HashMap<K, V, S>>>, // Store span IDs and names
+}
+
+impl<K: Eq + std::hash::Hash + Clone,
+    V: Clone> SubscriberContainer<K, V,  std::hash::RandomState> {
+    pub fn new() -> Self
+    {
+        Self {
+            rwmap: Arc::new(RwLock::new(HashMap::new()))
+        }
+    }
+
+    pub fn get_or_insert_with<F: FnOnce() -> V>(
+        &self,
+        key: &K,
+        default: F
+    ) -> V {
+
+        {
+            let read_lock = self.rwmap.read().expect("Couldn't get read subscriber");
+            if let Some(existing_value) = read_lock.get(&key) {
+                return existing_value.clone();
+            }
+        }
+
+        // Take a write lock if the key does not exist
+        let mut write_guard = self.rwmap.write().expect("Couldn't get write subscriber");
+        write_guard.entry(key.clone()).or_insert_with(default).clone()
+    }
+}
+
 
 pub struct ExtraeSubscriber {
     subscriber_id: u16,
-    spans: Arc<RwLock<HashMap<String, u16>>>, // Store span IDs and names
+    tokio_event_id: u16,
+    spans: SubscriberContainer<String, u16>,
+    events: SubscriberContainer<String, u32>,
 }
 
 impl ExtraeSubscriber {
     pub fn new() -> Self {
-        let subscriber_id = crate::GlobalInfo::register_event_name("subscriber_created", "", 0, 0);
+        let subscriber_id = crate::GlobalInfo::register_event_name("subscriber_created", None, None, None);
+        let tokio_event_id = crate::GlobalInfo::register_event_name("tokio_event", None, None, None);
         crate::ThreadInfo::emplace_event(subscriber_id, 1);
         Self {
             subscriber_id,
-            spans: Arc::new(RwLock::new(HashMap::new())),
+            tokio_event_id,
+            spans: SubscriberContainer::default(),
+            events: SubscriberContainer::default(),
         }
     }
 }
 
 impl Drop for ExtraeSubscriber {
+    // This code is actually never called.
     fn drop(&mut self) {
         crate::ThreadInfo::emplace_event(self.subscriber_id, 0);
     }
@@ -36,25 +75,21 @@ impl Subscriber for ExtraeSubscriber {
 
     fn new_span(&self, attrs: &span::Attributes<'_>) -> span::Id {
 
-        let name = attrs.metadata().name();
-        let file = attrs.metadata().file().or(Some("Unknown")).unwrap();
-        let line = attrs.metadata().line().or(Some(0)).unwrap();
+        let name = attrs.metadata().name().to_string();
 
-        let read_lock = self.spans.read().expect("Couldn't get read subscriber");
-
-        let id: u16 = match read_lock.get(name) {
-                Some(id) => *id,
-                None => {
-                    drop(read_lock);
-
-                    let id = crate::GlobalInfo::register_event_name(name, file, line, 0);
-                    self.spans.write().expect("Couldn't get write subscriber").insert(name.to_string(), id);
-                    id
-                },
-            };
+        let id: u16 = self.spans.get_or_insert_with(
+            &name,
+            || {
+                crate::GlobalInfo::register_event_name(
+                    &name,
+                    attrs.metadata().file(),
+                    attrs.metadata().line(),
+                    None
+                )
+            }
+        );
 
         span::Id::from_u64(id.into())
-
     }
 
     fn record(&self, _: &span::Id, _: &span::Record<'_>) {
@@ -66,12 +101,33 @@ impl Subscriber for ExtraeSubscriber {
     }
 
     fn event(&self, event: &Event<'_>) {
-        // Custom handling of events
-        println!("Event recorded: {:?}", event);
 
-        // Example: Increment a counter on each event
-        // let mut state = self.state.lock().unwrap();
-        // *state += 1;
+        let mut visitor = EventVisitor::default();
+        event.record(&mut visitor);
+
+        let evt_name = visitor
+            .message
+            .unwrap_or_else(|| event.metadata().name().to_string());
+
+        // Get a value or generate a new one
+        let value = self.events.get_or_insert_with(
+            &event.metadata().name().to_string(),
+            || {
+                crate::GlobalInfo::register_event_value_name(
+                    evt_name.as_str(),
+                    event.metadata().file(),
+                    event.metadata().line(),
+                    self.tokio_event_id,
+                    visitor.value // When the value is None, the function generated a new value
+                )
+            }
+        );
+
+        crate::ThreadInfo::emplace_event(self.tokio_event_id, value);
+
+        // This is TODO work. at the moment non-critical.
+        //println!("Event recorded: {:?}", event);
+
     }
 
     fn enter(&self, id: &span::Id) {
@@ -83,7 +139,25 @@ impl Subscriber for ExtraeSubscriber {
     }
 }
 
+#[derive(Default)]
+struct EventVisitor {
+    message: Option<String>,
+    value: Option<u32>
+}
 
-#[cfg(test)]
-mod tests {
+impl tracing::field::Visit for EventVisitor {
+    fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug)
+    {
+        if field.name() == "message" {
+            self.message = Some(format!("{:?}", value));
+        }
+    }
+
+    fn record_i64(&mut self, field: &tracing::field::Field, value: i64)
+    {
+        match field.name() {
+            "value" => self.value = Some(value as u32),
+            _ => {}
+        }
+    }
 }

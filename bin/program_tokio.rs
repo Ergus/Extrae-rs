@@ -1,14 +1,15 @@
 use extrae_rs::ExtraeSubscriber;
 
-//use tracing::{info, Level};
+use tracing::info;
 use tracing::subscriber::set_global_default;
 use tokio::task;
 use tokio::time::{self, Duration};
 
 #[tracing::instrument]
 async fn task1() {
-    //info!("Task 1 started");
+    info!(value = 5, "Task 1 started");
     time::sleep(Duration::from_millis(500)).await;
+    //event!()
     //info!("Task 1 completed");
 }
 
@@ -31,9 +32,9 @@ async fn main() {
     let handle1 = task::spawn(task1());
     let handle2 = task::spawn(task2("Hello"));
 
-    // let handle3 = task::spawn(task1());
+    let handle3 = task::spawn(task1());
     // let handle4 = task::spawn(task2("World"));
 
     // Wait for both tasks to complete
-    let _ = tokio::join!(handle1, handle2);
+    let _ = tokio::join!(handle1, handle2, handle3);
 }

@@ -145,6 +145,22 @@ impl GlobalInfo {
                 .register_event_name(event_name, file_name, line, event)
         }
     }
+
+    pub fn register_event_value_name(
+        event_name: &str,
+        file_name: Option<&str>,
+        line: Option<u32>,
+        event: u16,
+        value: Option<u32>
+    ) -> u32 {
+        unsafe {
+            INFO.get_or_insert_with(|| GlobalInfo::new())
+                .name_set
+                .register_event_value_name(event_name, file_name, line, event, value)
+        }
+    }
+
+
 }
 
 
