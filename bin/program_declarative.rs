@@ -21,7 +21,7 @@ fn myfunction3()
 fn main() -> nix::Result<()>
 {
     println!("Start Program");
-    GlobalInfo::register_event_name("Event1", file!(), line!(), 10);
+    GlobalInfo::register_event_name("Event1", Some(file!()), Some(line!()), Some(10));
     ThreadInfo::emplace_event(10, 1);
 
     ThreadInfo::emplace_event(10, 0);

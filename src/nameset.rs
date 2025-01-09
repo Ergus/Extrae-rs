@@ -2,6 +2,7 @@
 
 use std::io::Write;
 use std::str::FromStr;
+use std::sync::atomic;
 use std::sync::{Arc, RwLock};
 use std::collections::BTreeMap;
 use std::collections::btree_map::Entry;
@@ -16,12 +17,12 @@ struct NameInfo {
 }
 
 impl NameInfo {
-    fn new(name: &str, path: &str, line: u32) -> Self
+    fn new(name: &String, path: Option<&str>, line: Option<u32>) -> Self
     {
         Self {
-            name: name.to_string(),
-            path: std::path::PathBuf::from_str(path).expect("Error converting path"),
-            line
+            name: name.clone(),
+            path: std::path::PathBuf::from_str(path.unwrap_or_default()).expect("Error converting path"),
+            line: line.unwrap_or_default()
         }
     }
 }
@@ -39,7 +40,7 @@ struct NameEntry {
 }
 
 impl NameEntry {
-    fn new(name: &str, path: &str, line: u32) -> Self
+    fn new(name: &String, path: Option<&str>, line: Option<u32>) -> Self
     {
         Self {
             info: NameInfo::new(name, path, line),
@@ -49,9 +50,7 @@ impl NameEntry {
 }
 
 pub struct NameSet {
-    // This is a normal counter because we only change it with the
-    // write lock taken
-    counter: u16,
+    counter: atomic::AtomicU16,
     names_event_map: Arc<RwLock<BTreeMap<u16, NameEntry>>>,
 }
 
@@ -63,47 +62,54 @@ impl NameSet {
     pub fn new() -> Self
     {
         Self {
-            counter: Self::MAX_USER_EVENT,
+            counter: atomic::AtomicU16::new(Self::MAX_USER_EVENT),
             names_event_map:  Arc::new(RwLock::new(BTreeMap::new()))
         }
     }
 
+    /// Register a new event with event_name and event_id
+    /// When event_id is not specified the function generated a new event_it
+    /// The generated id is in the internal range (above the user events range)
     pub fn register_event_name(
         &mut self,
         event_name: &str,
-        file_name: &str,
-        line: u32,
-        event: u16
+        file_name: Option<&str>,
+        line: Option<u32>,
+        event_id: Option<u16>
     ) -> u16 {
-        let real_name = if event_name.is_empty() {
-            format!("{}:{}",file_name, line)
-        } else {
-            event_name.to_string()
-        };
+        let real_name: String =
+            if event_name.is_empty() {
+                format!("{}:{}",file_name.unwrap_or_default(), line.unwrap_or_default())
+            } else {
+                event_name.to_string()
+            };
 
-        let value = NameEntry::new(real_name.as_str(), file_name, line);
-
-        let mut maplock = self.names_event_map.write().expect("Failed to get name_set lock");
+        let value = NameEntry::new(&real_name, file_name, line);
 
         // Is the provided id is zero we use the internal events counter.
         let mut event_ref: u16 =
-            if event == u16::default() {
-                assert!(event < Self::MAX_USER_EVENT,
-                    "Internal counter event value reached the limit");
-                self.counter += 1;
-                self.counter
-            } else {
-                assert!(event < Self::MAX_USER_EVENT,
-                    "Event value must be < {}", Self::MAX_USER_EVENT);
-                event
+            match event_id {
+                Some(evt) => {
+                    assert!(evt < Self::MAX_USER_EVENT,
+                        "Event value must be < {}", Self::MAX_USER_EVENT);
+                    evt
+                },
+                None => {
+                    let last = self.counter.fetch_add(1, atomic::Ordering::Relaxed);
+                    assert!(last < Self::MAX_EVENT,
+                        "Internal counter event value reached the limit");
+                    last + 1
+                }
             };
+
+        let mut maplock = self.names_event_map.write().expect("Failed to get name_set lock");
 
         // Is the event value is already occupied we silently search
         // for the next closest hole and use it. We use the initial
         // value only as a hint.
         match maplock.entry(event_ref) {
             Entry::Vacant(entry) => {entry.insert(value);},
-            Entry::Occupied(_) => { // Find the first key available
+            Entry::Occupied(_) => { // Find the first key available next to event_ref
                 for (&existing_key, _) in maplock.range(event_ref..).by_ref() {
                     if existing_key != event_ref {
                         // Found a hole
@@ -123,19 +129,19 @@ impl NameSet {
         &mut self,
         event_name: &str
     ) -> u16 {
-        self.register_event_name(event_name, "profiler", 0, 0)
+        self.register_event_name(event_name, Some("profiler"), None, None)
     }
 
-    pub fn register_value_name(
+    pub fn register_event_value_name(
         &mut self,
         value_name: &str,
-        file_name: &str,
-        line: u32,
+        file_name: Option<&str>,
+        line: Option<u32>,
         event: u16,
-        value: u32
+        value: Option<u32>
     ) -> u32 {
-        let real_name = if value_name.is_empty() {
-            format!("{}:{}",file_name, line)
+        let real_name: String = if value_name.is_empty() {
+            format!("{}:{}",file_name.unwrap_or_default(), line.unwrap_or_default())
         } else {
             value_name.to_string()
         };
@@ -144,18 +150,30 @@ impl NameSet {
 
         match maplock.entry(event) {
             Entry::Vacant(_) => {
-                panic!("Cannot register event value: '{}' with id: {} the event ID does not exist.", real_name, value);
+                panic!("Cannot register event value: '{}' with id: {} the event ID does not exist.", real_name, event);
             },
 
             Entry::Occupied(mut entry) => {
-                match entry.get_mut().names_values_map.entry(value) {
+
+                let val = {
+                    if let Some(value) = value {
+                        value // If specified
+                    } else if let Some((&k, _)) = entry.get_mut().names_values_map.iter().next_back() {
+                        k + 1 // else get the value after current max
+                    } else {
+                        1     // else the entry has not values yet and map is empty
+                    }
+                };
+
+
+                match entry.get_mut().names_values_map.entry(val) {
                     Entry::Vacant(sub_entry) => {
-                        sub_entry.insert(NameInfo::new(real_name.as_str(), file_name, line));
-                        value
+                        sub_entry.insert(NameInfo::new(&real_name, file_name, line));
+                        val
                     },
                     Entry::Occupied(sub_entry) => {
                         panic!("Cannot cannot register event value: '{}' with id {}:{} it is already taken by {}",
-                            real_name, event, value, sub_entry.key());
+                            real_name, event, val, sub_entry.key());
                     },
                 }
             },

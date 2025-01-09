@@ -135,9 +135,9 @@ impl GlobalInfo {
 
     pub fn register_event_name(
         event_name: &str,
-        file_name: &str,
-        line: u32,
-        event: u16
+        file_name: Option<&str>,
+        line: Option<u32>,
+        event: Option<u16>
     ) -> u16 {
         unsafe {
             INFO.get_or_insert_with(|| GlobalInfo::new())
