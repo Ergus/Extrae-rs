@@ -10,7 +10,7 @@ use std::collections::btree_map::Entry;
 /// A struct representing information about a name, including its file
 /// path and line number.
 #[derive(Debug, Clone, PartialEq)]
-struct NameInfo {
+pub(crate) struct NameInfo {
     name: String,
     path: std::path::PathBuf,
     line: u32
@@ -49,7 +49,7 @@ impl NameEntry {
     }
 }
 
-pub struct NameSet {
+pub(crate) struct NameSet {
     counter: atomic::AtomicU16,
     names_event_map: Arc<RwLock<BTreeMap<u16, NameEntry>>>,
 }
@@ -180,6 +180,28 @@ impl NameSet {
         }
     }
 
+    pub fn get_event_value_info(
+        &self,
+        event: u16,
+        value: Option<u32>
+    ) -> Option<NameInfo> {
+
+        match self
+            .names_event_map
+            .read()
+            .expect("Failed to get name_set read lock")
+            .get(&event) {
+                None => None,
+                Some(entry) => {
+                    if let Some(val) = value {
+                        entry.names_values_map.get(&val).cloned()
+                    } else {
+                        Some(entry.info.clone())
+                    }
+                }
+            }
+    }
+
     pub fn create_pcf(&self, trace_dir: &std::path::Path) -> std::io::Result<()>
     {
         let file = std::fs::File::create(trace_dir.join("Trace.pcf"))?;
@@ -219,53 +241,53 @@ mod nameset{
         let mut name_set = NameSet::new();
 
         // Insert contiguous
-        let mut val = name_set.register_event_name("Event1", "File1", 0, 1);
+        let mut val = name_set.register_event_name("Event1", Some("File1"), None, Some(1));
         assert_eq!(val, 1);
 
-        val = name_set.register_event_name("Event2", "File2", 0, 2);
+        val = name_set.register_event_name("Event2", Some("File2"), None, Some(2));
         assert_eq!(val, 2);
 
-        val = name_set.register_event_name("Event3", "File3", 0, 3);
+        val = name_set.register_event_name("Event3", Some("File3"), Some(0), Some(3));
         assert_eq!(val, 3);
 
         // Insert with some offset
-        val = name_set.register_event_name("Event8.1", "File3", 0, 8);
+        val = name_set.register_event_name("Event8.1", Some("File3"), Some(0), Some(8));
         assert_eq!(val, 8);
 
         // Test the searcher
-        val = name_set.register_event_name("Event8.2", "File3", 0, 8);
+        val = name_set.register_event_name("Event8.2", Some("File3"), Some(0), Some(8));
         assert_eq!(val, 9);
 
         // Test the searcher again
-        val = name_set.register_event_name("Event8.3", "File3", 0, 8);
+        val = name_set.register_event_name("Event8.3", Some("File3"), Some(0), Some(8));
         assert_eq!(val, 10);
 
         // Test the next in an interleaved hole
-        val = name_set.register_event_name("Event1.1", "File1", 0, 1);
+        val = name_set.register_event_name("Event1.1", Some("File1"), None, Some(1));
         assert_eq!(val, 4);
 
         // Test the next in an interleaved hole again 
-        val = name_set.register_event_name("Event1.1", "File1", 0, 2);
+        val = name_set.register_event_name("Event1.1", Some("File1"), Some(0), Some(2));
         assert_eq!(val, 5);
 
 
     }
 
     #[test]
-    fn register_value_name()
+    fn register_event_value_name()
     {
         let mut name_set = NameSet::new();
 
         // Insert contiguous
-        assert_eq!(name_set.register_event_name("Event1", "File1", 0, 1), 1);
+        assert_eq!(name_set.register_event_name("Event1", Some("File1"), Some(0), Some(1)), 1);
 
-        let mut val = name_set.register_value_name("Value1", "File1", 0, 1, 1);
+        let mut val = name_set.register_event_value_name("Value1", Some("File1"), Some(0), 1, Some(1));
         assert_eq!(val, 1);
 
-        val = name_set.register_value_name("Value2", "File1", 0, 1, 2);
+        val = name_set.register_event_value_name("Value2", Some("File1"), None, 1, Some(2));
         assert_eq!(val, 2);
 
-        val = name_set.register_value_name("Value3", "File1", 0, 1, 3);
+        val = name_set.register_event_value_name("Value3", Some("File1"), None, 1, Some(3));
         assert_eq!(val, 3);
     }
 
@@ -276,17 +298,17 @@ mod nameset{
         let mut name_set = NameSet::new();
 
         // Insert contiguous
-        assert_eq!(name_set.register_event_name("Event1", "File1", 0, 1), 1);
-        assert_eq!(name_set.register_event_name("Event2", "File2", 0, 2), 2);
-        assert_eq!(name_set.register_event_name("Event3", "File3", 0, 3), 3);
-        assert_eq!(name_set.register_event_name("Event8.1", "File3", 0, 8), 8);
-        assert_eq!(name_set.register_event_name("Event8.2", "File3", 0, 8), 9);
-        assert_eq!(name_set.register_event_name("Event8.3", "File3", 0, 8), 10);
-        assert_eq!(name_set.register_event_name("Event1.1", "File1", 0, 1), 4);
+        assert_eq!(name_set.register_event_name("Event1", Some("File1"), None, Some(1)), 1);
+        assert_eq!(name_set.register_event_name("Event2", Some("File2"), None, Some(2)), 2);
+        assert_eq!(name_set.register_event_name("Event3", Some("File3"), None, Some(3)), 3);
+        assert_eq!(name_set.register_event_name("Event8.1", Some("File3"), Some(0), Some(8)), 8);
+        assert_eq!(name_set.register_event_name("Event8.2", Some("File3"), Some(0), Some(8)), 9);
+        assert_eq!(name_set.register_event_name("Event8.3", Some("File3"), Some(0), Some(8)), 10);
+        assert_eq!(name_set.register_event_name("Event1.1", Some("File1"), Some(0), Some(1)), 4);
 
-        assert_eq!(name_set.register_value_name("Value1", "File1", 0, 1, 1), 1);
-        assert_eq!(name_set.register_value_name("Value2", "File1", 0, 1, 2), 2);
-        assert_eq!(name_set.register_value_name("Value3", "File1", 0, 1, 3), 3);
+        assert_eq!(name_set.register_event_value_name("Value1", Some("File1"), None, 1, Some(1)), 1);
+        assert_eq!(name_set.register_event_value_name("Value2", Some("File1"), None, 1, Some(2)), 2);
+        assert_eq!(name_set.register_event_value_name("Value3", Some("File1"), None, 1, Some(3)), 3);
 
         name_set.create_pcf(std::path::Path::new("/tmp")).unwrap();
     }

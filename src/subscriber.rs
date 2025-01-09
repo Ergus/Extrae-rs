@@ -4,8 +4,6 @@ use tracing::{span, Event, Metadata, Subscriber};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
-use crate::GlobalInfo;
-
 /// This is a helper container protected with an rwlock.
 /// The main goal for this class is that the new entries requires to
 /// take the write lock. But the most frequent accesses are read
@@ -61,7 +59,7 @@ pub struct ExtraeSubscriber {
 impl ExtraeSubscriber {
     pub fn new() -> Self {
         let tokio_event_id = crate::GlobalInfo::register_event_name("tokio_event", None, None, None);
-        crate::ThreadInfo::init();
+        crate::ThreadInfo::with(|_| {});
         Self {
             tokio_event_id,
             spans: SubscriberContainer::default(),

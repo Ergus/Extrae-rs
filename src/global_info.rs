@@ -160,6 +160,17 @@ impl GlobalInfo {
         }
     }
 
+    pub(crate) fn get_event_value_info(
+        event: u16,
+        value: Option<u32>
+    ) -> Option<crate::nameset::NameInfo> {
+        unsafe {
+            INFO.get_or_insert_with(|| GlobalInfo::new())
+                .name_set
+                .get_event_value_info(event, value)
+        }
+    }
+
 
 }
 

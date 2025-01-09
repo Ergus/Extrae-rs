@@ -41,6 +41,14 @@ impl ThreadInfo {
         static THREAD_INFO: ThreadInfo = ThreadInfo::new();
     }
 
+    pub fn with<F, R>(f: F) -> R
+    where
+      F: FnOnce(&ThreadInfo) -> R,
+    {
+        // Just make a dummy reference for the case 
+        ThreadInfo::THREAD_INFO.with(f)
+    }
+
     pub fn emplace_event(id: u16, value: u32)
     {
         ThreadInfo::THREAD_INFO.with(|info| {

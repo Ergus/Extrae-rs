@@ -58,7 +58,7 @@ macro_rules! instrument_function {
             // Create a profiler guard
             static PROFILER_ONCE: std::sync::OnceLock<u16> = std::sync::OnceLock::new();
             extrae_rs::Guard::new(
-                *PROFILER_ONCE.get_or_init(|| extrae_rs::GlobalInfo::register_event_name($arg1, Some(file!()), Some(line!()), $arg2)),
+                *PROFILER_ONCE.get_or_init(|| extrae_rs::GlobalInfo::register_event_name($arg1, Some(file!()), Some(line!()), Some($arg2))),
                 1
             )
         };
