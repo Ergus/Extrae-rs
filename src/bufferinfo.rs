@@ -263,3 +263,61 @@ impl std::ops::Index<usize> for BufferInfo {
         &self.entries[index]
     }
 }
+
+#[cfg(test)]
+mod profiler {
+
+    use std::str::FromStr;
+
+    use super::*;
+
+    #[test]
+    fn bufferinfo_construct()
+    {
+        let mut info = BufferInfo::new(
+            1,
+            &std::thread::current().id(),
+            &std::time::Duration::default()
+        );
+
+        info.emplace_event(1, 1);
+        info.emplace_event(1, 2);
+        info.emplace_event(2, 1);
+        info.emplace_event(2, 2);
+    }
+
+    #[test]
+    fn bufferinfo_serialize()
+    {
+        let path = std::path::PathBuf::from_str("/tmp/bufferinfo_serialize").unwrap();
+
+        // Create a buffer with 6 entries
+        let mut info = BufferInfo::new(
+            1,
+            &std::thread::current().id(),
+            &std::time::Duration::default()
+        );
+
+        info.emplace_event(1, 1);
+        info.emplace_event(2, 7);
+        info.emplace_event(3, 8);
+        info.emplace_event(4, 9);
+        info.emplace_event(5, 10);
+        info.emplace_event(6, 11);
+
+        let mut cloned_info = info.clone();
+        cloned_info.header.total_flushed = 6;
+
+        let mut file = std::fs::File::create_new(&path).expect("Error creating file");
+        info.flush_to_file(&mut file).expect("Failed to flush");
+
+        assert!(path.exists());
+
+        let mut file = std::fs::File::open(&path).unwrap();
+        let imported_info = BufferInfo::from_file(&mut file);
+
+        std::fs::remove_file(path).unwrap();
+
+        assert_eq!(cloned_info, imported_info);
+    }
+}
