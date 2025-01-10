@@ -326,7 +326,6 @@ mod profiler {
         assert_eq!(info[0].hdr, info[1].hdr);
         assert_eq!(info[0].hdr, info[2].hdr);
         assert_eq!(info[0].hdr, info[3].hdr);
-
     }
 
 
