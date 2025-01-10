@@ -6,11 +6,11 @@ use std::iter::Iterator;
 
 use chrono::TimeZone;
 
-use crate::buffer;
+use crate::bufferinfo;
 
 // Iterator for the array inside the file.
 struct TraceIterator {
-    pub(crate) header: buffer::TraceHeader,
+    pub(crate) header: bufferinfo::TraceHeader,
     buf_reader: std::io::BufReader<File>,
     remaining: usize,
 }
@@ -20,14 +20,14 @@ impl TraceIterator {
         let file = File::open(path).expect("Error opening file");
         let mut buf_reader = std::io::BufReader::new(file);
 
-        const HDRSIZE: usize = std::mem::size_of::<buffer::TraceHeader>();
+        const HDRSIZE: usize = std::mem::size_of::<bufferinfo::TraceHeader>();
 
         // Allocate a buffer to read the structs
         let mut tmp = vec![0u8; HDRSIZE];
         buf_reader.read_exact(&mut tmp).expect("Error reading header from file");
 
-        let header: buffer::TraceHeader = unsafe {
-            *(tmp.as_ptr() as *const buffer::TraceHeader) 
+        let header: bufferinfo::TraceHeader = unsafe {
+            *(tmp.as_ptr() as *const bufferinfo::TraceHeader) 
         };
 
         let remaining = header.total_flushed as usize;
@@ -37,7 +37,7 @@ impl TraceIterator {
 }
 
 impl Iterator for TraceIterator {
-    type Item = buffer::EventEntry;
+    type Item = bufferinfo::EventEntry;
 
     fn next(&mut self) -> Option<Self::Item>
     {
@@ -45,13 +45,13 @@ impl Iterator for TraceIterator {
             return None;
         }
 
-        let mut entry = buffer::EventEntry::default();
+        let mut entry = bufferinfo::EventEntry::default();
 
         match self.buf_reader.read_exact(
             unsafe {
                 std::slice::from_raw_parts_mut(
                     &mut entry as *mut _ as *mut u8,
-                    std::mem::size_of::<buffer::EventEntry>()
+                    std::mem::size_of::<bufferinfo::EventEntry>()
                 )
             }
         ) {
@@ -66,11 +66,11 @@ struct ExtendedEvent {
     time: u64,
     tid: u32,
     core: u16,
-    events: Vec<buffer::EventInfo>
+    events: Vec<bufferinfo::EventInfo>
 }
 
 impl ExtendedEvent {
-    fn new(id: u32, event: &buffer::EventEntry) -> Self
+    fn new(id: u32, event: &bufferinfo::EventEntry) -> Self
     {
         Self {
             time: event.hdr.time,

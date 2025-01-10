@@ -1,5 +1,7 @@
+mod bufferinfo;
+pub use bufferinfo::BufferInfo;
+
 mod buffer;
-pub use buffer::BufferInfo;
 
 mod nameset;
 mod bufferset;
