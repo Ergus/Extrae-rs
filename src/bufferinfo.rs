@@ -188,6 +188,22 @@ impl BufferInfo {
         }
     }
 
+    fn entries_to_file(
+        &mut self,
+        file: &mut std::fs::File
+    ) -> std::io::Result<()> {
+
+        file.seek(std::io::SeekFrom::End(0))?;
+        let mut writer = std::io::BufWriter::new(file);
+
+        writer.write_all(self.entries_as_bytes())?;
+        writer.flush()?;
+
+        self.entries.clear();
+
+        Ok(())
+    }
+
     pub(crate) fn flush_to_file(
         &mut self,
         file: &mut std::fs::File
@@ -201,11 +217,8 @@ impl BufferInfo {
         self.header.total_flushed += n_entries as u32;
 
         file.write_at(self.header.as_bytes(), 0)?;
-        file.seek(std::io::SeekFrom::End(0))?;
-        file.write_all(self.entries_as_bytes())?;
-        file.flush()?;
 
-        self.entries.clear();
+        self.entries_to_file(file)?;
 
         Ok(())
     }
