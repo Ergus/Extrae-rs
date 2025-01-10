@@ -274,6 +274,19 @@ mod profiler {
     #[test]
     fn bufferinfo_construct()
     {
+        let info = BufferInfo::new(
+            1,
+            &std::thread::current().id(),
+            &std::time::Duration::default()
+        );
+
+        assert_eq!(info.header.total_flushed, 0);
+        assert_eq!(info.header.id, 1);
+    }
+
+    #[test]
+    fn bufferinfo_emplace_event()
+    {
         let mut info = BufferInfo::new(
             1,
             &std::thread::current().id(),
@@ -284,7 +297,38 @@ mod profiler {
         info.emplace_event(1, 2);
         info.emplace_event(2, 1);
         info.emplace_event(2, 2);
+
+        assert_eq!(info[0].info, (1, 1).into());
+        assert_eq!(info[1].info, (1, 2).into());
+        assert_eq!(info[2].info, (2, 1).into());
+        assert_eq!(info[3].info, (2, 2).into());
     }
+
+
+    #[test]
+    fn bufferinfo_emplace_events()
+    {
+        let mut info = BufferInfo::new(
+            1,
+            &std::thread::current().id(),
+            &std::time::Duration::default()
+        );
+
+        info.emplace_events(
+            &[(1, 1), (1, 2), (2, 1), (2, 2)]
+        );
+
+        assert_eq!(info[0].info, (1, 1).into());
+        assert_eq!(info[1].info, (1, 2).into());
+        assert_eq!(info[2].info, (2, 1).into());
+        assert_eq!(info[3].info, (2, 2).into());
+
+        assert_eq!(info[0].hdr, info[1].hdr);
+        assert_eq!(info[0].hdr, info[2].hdr);
+        assert_eq!(info[0].hdr, info[3].hdr);
+
+    }
+
 
     #[test]
     fn bufferinfo_serialize()
