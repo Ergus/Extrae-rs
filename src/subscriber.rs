@@ -58,7 +58,9 @@ pub struct ExtraeSubscriber {
 
 impl ExtraeSubscriber {
     pub fn new() -> Self {
-        let tokio_event_id = crate::GlobalInfo::register_event_name("tokio_event", None, None, None);
+        let tokio_event_id = crate::GlobalInfo::register_event_name(
+            "tokio_event", None, None, None
+        );
         crate::ThreadInfo::with(|_| {});
         Self {
             tokio_event_id,

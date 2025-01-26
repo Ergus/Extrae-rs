@@ -2,12 +2,6 @@
 
 use std::{io::{Read, Seek, Write}, os::unix::fs::FileExt};
 
-/// Get nano-seconds since the trace begins for a given timePoint
-fn get_nano_seconds() -> u128 {
-    static START_TIMESTAMP: std::sync::OnceLock::<std::time::Instant> = std::sync::OnceLock::<std::time::Instant>::new();
-    START_TIMESTAMP.get_or_init(std::time::Instant::now).elapsed().as_nanos()
-}
-
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct TraceHeader {
@@ -57,12 +51,18 @@ impl EventHeader {
     fn new() -> Self
     {
         Self {
-            time: u64::try_from(get_nano_seconds())
+            time: u64::try_from(Self::get_nano_seconds())
                 .expect("Time conversion overflow"),
             core: u16::try_from(nix::sched::sched_getcpu()
                 .expect("Could not get cpuID"))
                 .expect("cpuid conversion overflow"),
         }
+    }
+
+    /// Get nano-seconds since the trace begins for a given timePoint
+    fn get_nano_seconds() -> u128 {
+        static START_TIMESTAMP: std::sync::OnceLock::<std::time::Instant> = std::sync::OnceLock::<std::time::Instant>::new();
+        START_TIMESTAMP.get_or_init(std::time::Instant::now).elapsed().as_nanos()
     }
 }
 
