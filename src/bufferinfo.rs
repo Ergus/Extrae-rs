@@ -285,6 +285,13 @@ mod profiler {
     use super::*;
 
     #[test]
+    fn eventinfo_construct()
+    {
+        assert_eq!(EventInfo{id: 2, value: 3}, EventInfo::from((2, 3)));
+        assert_eq!(EventInfo{id: 2, value: 3}, (2, 3).into());
+    }
+
+    #[test]
     fn bufferinfo_construct()
     {
         let info = BufferInfo::new(
@@ -295,6 +302,7 @@ mod profiler {
 
         assert_eq!(info.header.total_flushed, 0);
         assert_eq!(info.header.id, 1);
+        assert!(info.is_empty());
     }
 
     #[test]
@@ -326,11 +334,13 @@ mod profiler {
             &std::thread::current().id(),
             &std::time::Duration::default()
         );
+        assert!(info.is_empty());
 
         info.emplace_events(
             &[(1, 1), (1, 2), (2, 1), (2, 2)]
         );
 
+        assert!(!info.is_empty());
         assert_eq!(info[0].info, (1, 1).into());
         assert_eq!(info[1].info, (1, 2).into());
         assert_eq!(info[2].info, (2, 1).into());
@@ -339,6 +349,9 @@ mod profiler {
         assert_eq!(info[0].hdr, info[1].hdr);
         assert_eq!(info[0].hdr, info[2].hdr);
         assert_eq!(info[0].hdr, info[3].hdr);
+
+        // Check that 3 entries does not full the buffer
+        assert!(!info.is_full());
     }
 
 
@@ -366,13 +379,22 @@ mod profiler {
 
         let mut file = std::fs::File::create_new(&path).expect("Error creating file");
         info.flush_to_file(&mut file).expect("Failed to flush");
-
         assert!(path.exists());
 
         let mut file = std::fs::File::open(&path).unwrap();
         let imported_info = BufferInfo::from_file(&mut file);
-
         std::fs::remove_file(path).unwrap();
+        
+        assert!(!imported_info.is_empty());
+        assert!(!imported_info.is_full());
+
+        // Tests imported values
+        assert_eq!(imported_info[0].info, (1, 1).into());
+        assert_eq!(imported_info[1].info, (2, 7).into());
+        assert_eq!(imported_info[2].info, (3, 8).into());
+        assert_eq!(imported_info[3].info, (4, 9).into());
+        assert_eq!(imported_info[4].info, (5, 10).into());
+        assert_eq!(imported_info[5].info, (6, 11).into());
 
         assert_eq!(cloned_info, imported_info);
     }
