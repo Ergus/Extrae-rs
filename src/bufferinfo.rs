@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+use crate::event;
 use std::{io::{Read, Seek, Write}, os::unix::fs::FileExt};
 
 #[repr(C)]
@@ -40,94 +41,14 @@ impl std::fmt::Display for TraceHeader {
     }
 }
 
-#[repr(C)]
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Default)]
-pub(crate) struct EventHeader {
-    pub(crate) time: u64,
-    pub(crate) core: u16,
-}
-
-impl EventHeader {
-    fn new() -> Self
-    {
-        Self {
-            time: u64::try_from(Self::get_nano_seconds())
-                .expect("Time conversion overflow"),
-            core: u16::try_from(nix::sched::sched_getcpu()
-                .expect("Could not get cpuID"))
-                .expect("cpuid conversion overflow"),
-        }
-    }
-
-    /// Get nano-seconds since the trace begins for a given timePoint
-    fn get_nano_seconds() -> u128 {
-        static START_TIMESTAMP: std::sync::OnceLock::<std::time::Instant> = std::sync::OnceLock::<std::time::Instant>::new();
-        START_TIMESTAMP.get_or_init(std::time::Instant::now).elapsed().as_nanos()
-    }
-}
-
-#[repr(C)]
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Default)]
-pub(crate) struct EventInfo {
-    pub(crate) id: u16,
-    pub(crate) value: u32,
-}
-
-// Automatic convert tuple to EventInfo
-impl std::convert::From<(u16, u32)> for EventInfo {
-    fn from(tuple: (u16, u32)) -> Self {
-        Self {
-            id: tuple.0,
-            value: tuple.1,
-        }
-    }
-}
-
-#[repr(C)]
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Default)]
-pub struct EventEntry {
-    pub(crate) hdr: EventHeader,
-    pub(crate) info: EventInfo,
-}
-
-impl EventEntry {
-    fn new(id: u16, value: u32) -> Self
-    {
-        Self {
-            hdr: EventHeader::new(),
-            info: EventInfo { id, value }
-        }
-    }
-}
-
-// Needed to sort in the heap
-impl PartialOrd for EventEntry {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for EventEntry {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.hdr.time.cmp(&other.hdr.time)
-    }
-}
-
-impl std::fmt::Display for EventEntry {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "core:{} time:{} id:{} value:{}",
-            self.hdr.core, self.hdr.time, self.info.id, self.info.value)
-    }
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct BufferInfo {
     pub(crate) header: TraceHeader,
-    pub(crate) entries: Vec<EventEntry>,
+    pub(crate) entries: Vec<event::EventEntry>,
 }
 
 impl BufferInfo {
-    const MAX_ENTRIES: usize = (1024 * 1024 + std::mem::size_of::<EventEntry>() - 1) / std::mem::size_of::<EventEntry>();
+    const MAX_ENTRIES: usize = (1024 * 1024 + std::mem::size_of::<event::EventEntry>() - 1) / std::mem::size_of::<event::EventEntry>();
 
     pub(crate) fn new(
         id: u32,
@@ -136,7 +57,7 @@ impl BufferInfo {
     ) -> Self {
         Self {
             header: TraceHeader::new(id, &tid, &start_gtime),
-            entries: Vec::<EventEntry>::with_capacity(Self::MAX_ENTRIES)
+            entries: Vec::<event::EventEntry>::with_capacity(Self::MAX_ENTRIES)
         }
     }
 
@@ -145,7 +66,7 @@ impl BufferInfo {
         let mut buf_reader = std::io::BufReader::new(file);
 
         const HDRSIZE: usize = std::mem::size_of::<TraceHeader>();
-        const EVTSIZE: usize = std::mem::size_of::<EventEntry>();
+        const EVTSIZE: usize = std::mem::size_of::<event::EventEntry>();
 
         // Allocate a buffer to read the structs
         let mut tmp = vec![0u8; HDRSIZE];
@@ -159,7 +80,7 @@ impl BufferInfo {
         // and import the events "IN PLACE". The unsafe code is to
         // avoid a temporal buffer and coping.
         let n_entries: usize = header.total_flushed as usize;
-        let mut entries = Vec::<EventEntry>::with_capacity(n_entries);
+        let mut entries = Vec::<event::EventEntry>::with_capacity(n_entries);
 
         buf_reader.read_exact(
             unsafe {
@@ -183,7 +104,7 @@ impl BufferInfo {
             // Convert the slice to a slice of bytes
             std::slice::from_raw_parts(
                 self.entries.as_ptr() as *const u8,
-                self.entries.len() * std::mem::size_of::<EventEntry>(),
+                self.entries.len() * std::mem::size_of::<event::EventEntry>(),
             )
         }
     }
@@ -225,16 +146,16 @@ impl BufferInfo {
 
     pub(crate) fn emplace_event(&mut self, id: u16, value: u32)
     {
-        self.entries.push(EventEntry::new(id, value));
+        self.entries.push(event::EventEntry::new(id, value));
     }
 
     pub(crate) fn emplace_events(&mut self, entries: &[(u16, u32)])
     {
-        let hdr = EventHeader::new();
+        let hdr = crate::event::EventHeader::new();
 
         for &entry in entries.iter() {
             self.entries.push(
-                EventEntry { hdr: hdr.clone(), info: entry.into() }
+                event::EventEntry { hdr: hdr.clone(), info: entry.into() }
             );
         }
     }
@@ -250,7 +171,7 @@ impl BufferInfo {
         self.entries.is_empty()
     }
 
-    pub(crate) fn iter(&self) -> std::slice::Iter<'_, EventEntry>
+    pub(crate) fn iter(&self) -> std::slice::Iter<'_, event::EventEntry>
     {
         self.entries.iter()
     }
@@ -270,7 +191,7 @@ impl std::fmt::Display for BufferInfo {
 }
 
 impl std::ops::Index<usize> for BufferInfo {
-    type Output = EventEntry;
+    type Output = event::EventEntry;
 
     fn index(&self, index: usize) -> &Self::Output {
         &self.entries[index]
@@ -283,13 +204,6 @@ mod profiler {
     use std::str::FromStr;
 
     use super::*;
-
-    #[test]
-    fn eventinfo_construct()
-    {
-        assert_eq!(EventInfo{id: 2, value: 3}, EventInfo::from((2, 3)));
-        assert_eq!(EventInfo{id: 2, value: 3}, (2, 3).into());
-    }
 
     #[test]
     fn bufferinfo_construct()
@@ -384,7 +298,7 @@ mod profiler {
         let mut file = std::fs::File::open(&path).unwrap();
         let imported_info = BufferInfo::from_file(&mut file);
         std::fs::remove_file(path).unwrap();
-        
+
         assert!(!imported_info.is_empty());
         assert!(!imported_info.is_full());
 

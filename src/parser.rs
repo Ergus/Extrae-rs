@@ -6,7 +6,7 @@ use std::iter::Iterator;
 
 use chrono::TimeZone;
 
-use crate::bufferinfo;
+use crate::{bufferinfo,event};
 
 // Iterator for the array inside the file.
 struct TraceIterator {
@@ -37,7 +37,7 @@ impl TraceIterator {
 }
 
 impl Iterator for TraceIterator {
-    type Item = bufferinfo::EventEntry;
+    type Item = event::EventEntry;
 
     fn next(&mut self) -> Option<Self::Item>
     {
@@ -45,13 +45,13 @@ impl Iterator for TraceIterator {
             return None;
         }
 
-        let mut entry = bufferinfo::EventEntry::default();
+        let mut entry = event::EventEntry::default();
 
         match self.buf_reader.read_exact(
             unsafe {
                 std::slice::from_raw_parts_mut(
                     &mut entry as *mut _ as *mut u8,
-                    std::mem::size_of::<bufferinfo::EventEntry>()
+                    std::mem::size_of::<event::EventEntry>()
                 )
             }
         ) {
@@ -66,11 +66,11 @@ struct ExtendedEvent {
     time: u64,
     tid: u32,
     core: u16,
-    events: Vec<bufferinfo::EventInfo>
+    events: Vec<event::EventInfo>
 }
 
 impl ExtendedEvent {
-    fn new(id: u32, event: &bufferinfo::EventEntry) -> Self
+    fn new(id: u32, event: &event::EventEntry) -> Self
     {
         Self {
             time: event.hdr.time,
@@ -212,7 +212,9 @@ impl Merger {
 
         let total_events: u32 = trace_iters.iter().map(|item| item.header.total_flushed).sum();
 
-        let all_equal = trace_iters.windows(2).all(|pair| pair[0].header.start_gtime == pair[1].header.start_gtime);
+        let all_equal = trace_iters.windows(2)
+            .all(|pair| pair[0].header.start_gtime == pair[1].header.start_gtime);
+
         assert!(all_equal, "Some global time differs in trace headers");
 
         let start_time: u64 = trace_iters[0].header.start_gtime;

@@ -1,3 +1,6 @@
+mod event;
+pub use event::EventEntry;
+
 mod bufferinfo;
 pub use bufferinfo::BufferInfo;
 
