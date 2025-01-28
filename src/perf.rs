@@ -1,8 +1,7 @@
 #![allow(dead_code)]
 
-use nix::libc::{group, printf};
 use perf_event;
-use perf_event::events::{Event, Hardware, Software};
+use perf_event::events::{Hardware, Software};
 
 use std::collections::{hash_map::Entry, HashMap};
 
@@ -115,40 +114,3 @@ impl PerfManager {
     }
 
 }
-
-// fn main() {
-//     // Number of threads to monitor
-//     let num_threads = 4;
-
-//     let handles: Vec<_> = (0..num_threads)
-//         .map(|i| {
-//             thread::spawn(move || {
-//                 // Create a performance counter group for the current thread
-//                 let mut group = Group::new()?;
-//                 let cycles = Builder::new()
-//                     .group(&mut group)
-//                     .kind(Hardware::INSTRUCTIONS)
-//                     .build()?;
-
-//                 group.enable()?;
-
-//                 // Simulate some workload
-//                 for _ in 0..1_000_000 {
-//                     // Do some work
-//                 }
-
-//                 group.disable()?;
-
-//                 // Read the counter values
-//                 let counts = group.read()?;
-//                 println!("Thread {}: {:?}", i, counts);
-
-//                 Ok::<(), Box<dyn std::error::Error>>(())
-//             })
-//         })
-//         .collect();
-
-//     for handle in handles {
-//         handle.join().unwrap().unwrap();
-//     }
-// }

@@ -6,6 +6,7 @@ pub struct ThreadInfo {
     tid: std::thread::ThreadId,
     id: u32,
     buffer_events: crate::buffer::Buffer,
+    events_manager: Option<crate::perf::PerfManager>,
 }
 
 impl ThreadInfo {
@@ -22,11 +23,15 @@ impl ThreadInfo {
 
         buffer_events.emplace_event(GlobalInfo::as_ref().thread_event_id, 1);
 
-        Self { tid, id, buffer_events }
+        let events_manager =
+            crate::perf::PerfManager::new(&["cycles", "instructions"]);
+
+        Self { tid, id, buffer_events, events_manager }
     }
 }
 
 impl Drop for ThreadInfo {
+
     fn drop(&mut self)
     {
         self.buffer_events.emplace_event(GlobalInfo::as_ref().thread_event_id, 0);
@@ -59,4 +64,24 @@ impl ThreadInfo {
             }
         })
     }
+
+    pub fn emplace_event_and_counters(id: u16, value: u32)
+    {
+        ThreadInfo::THREAD_INFO.with(|info| {
+            let mut_info = info as *const ThreadInfo as *mut ThreadInfo;
+            unsafe {
+
+                match &mut (*mut_info).events_manager {
+                    Some(manager) => {
+                        let mut events = manager.get_counters();
+                        events.push((id, value));
+                        (*mut_info).buffer_events.emplace_events(&events);
+                    },
+                    None => (*mut_info).buffer_events.emplace_event(id, value),
+                }
+            }
+        })
+    }
+
+
 }

@@ -77,6 +77,12 @@ impl Buffer {
     {
         self.info.emplace_event(id, value);
     }
+
+    pub fn emplace_events(&mut self, entries: &[(u16, u32)])
+    {
+        self.info.emplace_events(entries);
+    }
+
 }
 
 impl Drop for Buffer {

@@ -154,7 +154,7 @@ impl Subscriber for ExtraeSubscriber {
             }
         );
 
-        crate::ThreadInfo::emplace_event(self.tokio_event_id, value);
+        crate::ThreadInfo::emplace_event_and_counters(self.tokio_event_id, value);
 
         // This is TODO work. at the moment non-critical.
         //println!("Event recorded: {:?}", event);
@@ -162,11 +162,11 @@ impl Subscriber for ExtraeSubscriber {
     }
 
     fn enter(&self, id: &span::Id) {
-        crate::ThreadInfo::emplace_event(id.into_u64() as u16, 1);
+        crate::ThreadInfo::emplace_event_and_counters(id.into_u64() as u16, 1);
     }
 
     fn exit(&self, id: &span::Id) {
-        crate::ThreadInfo::emplace_event(id.into_u64() as u16, 0);
+        crate::ThreadInfo::emplace_event_and_counters(id.into_u64() as u16, 0);
     }
 }
 
