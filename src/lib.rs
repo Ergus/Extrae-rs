@@ -9,6 +9,8 @@ mod buffer;
 mod nameset;
 mod bufferset;
 
+mod perf;
+
 mod global_info;
 pub use global_info::GlobalInfo;
 
