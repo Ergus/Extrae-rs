@@ -8,11 +8,9 @@ This project is a sort of rust improved reimplementation of
 The main goal is to use native rust code to generate instrumentation
 for highly concurrency code.
 
-In the near future this code will add perf integration and some other stuff.
-
 ## Usage
 
-At the moment the core includes two instrumentation methods:
+At the moment the core includes 3 instrumentation methods:
 
 ### With declarative macros:
 
@@ -63,12 +61,73 @@ fn myfunction3()
 }
 ```
 
-We provide test programs code for both cases and the user can mix both
-syntaxes. 
+### Tokio integration.
+
+```rust
+
+#[tracing::instrument]
+async fn task1() {
+    info!(value = 5, "Task 1 started");
+    time::sleep(Duration::from_millis(500)).await;
+ }
+
+#[tokio::main]
+async fn main() {
+
+    // Set up a subscriber that logs to stdout
+    let subscriber = ExtraeSubscriber::new();
+    set_global_default(subscriber).expect("Could not set global default subscriber");
+
+    // Run tasks concurrently
+    let handle1 = task::spawn(task1());
+
+    let handle2 = task::spawn(task1());
+
+    // Wait for both tasks to complete
+    let _ = tokio::join!(handle1, handle2);
+}
+
+```
+
+We provide test programs code for all cases and the user can mix
+syntaxes.
+
 
 ```shell
 cargo expand --bin program --features profiling
 ```
+
+## Perf integration
+
+The code includes perf events integration and supports the following
+events: `cycles`, `instructions`, `cache-references`, `cache-misses`,
+`page-faults`, `context-switches`, `cpu-migrations`.
+
+The events are tracked / thread.
+
+The user can specify the desired events with 2 methods:
+
+1. Environment variables:
+```bash
+`EXTRAE_counters="cycles,cache-misses" ./target/debug/program`
+```
+
+2. With a config file. Create a toml file in the execution directory
+   with the entry:
+
+```toml
+counters = ["cycles", "cache-misses"]
+```
+
+and execute the program as usual:
+```bash
+./target/debug/program`
+```
+
+The profiler initialization informs about the enabled counters.
+When both methods are enables, the environment variable has priority.
+
+## Trace generation
 
 Without the `--features profiling` here (or when importing the crate)
 no instrumentation will be generated at all.
