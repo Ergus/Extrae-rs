@@ -40,7 +40,7 @@ pub fn extrae_profile(args: TokenStream, item: TokenStream) -> TokenStream
     let input_fn = parse_macro_input!(item as ItemFn);
 
     let fn_name = input_fn.sig.ident.to_string();
-    let fn_block = input_fn.block;
+    let fn_block = &input_fn.block;
     let fn_vis = input_fn.vis;
     let fn_sig = input_fn.sig;
 
