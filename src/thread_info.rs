@@ -23,8 +23,10 @@ impl ThreadInfo {
 
         buffer_events.emplace_event(GlobalInfo::as_ref().thread_event_id, 1);
 
-        let events_manager =
-            crate::perf::PerfManager::new(&["cycles", "instructions"]);
+        let events_manager = {
+            let counter_names = &GlobalInfo::as_ref().config.counters;
+            crate::perf::PerfManager::new(counter_names)
+        };
 
         Self { tid, id, buffer_events, events_manager }
     }

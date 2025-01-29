@@ -5,7 +5,7 @@ use perf_event::events::{Hardware, Software};
 
 use std::collections::{hash_map::Entry, HashMap};
 
-enum SomeEvent {
+pub(crate) enum SomeEvent {
     Hardware(perf_event::events::Hardware),
     Software(perf_event::events::Software),
     None
@@ -13,19 +13,7 @@ enum SomeEvent {
 
 impl SomeEvent {
 
-    fn build_counter(group: &mut perf_event::Group, event_name: &str) ->std::io::Result<perf_event::Counter>
-    {
-        match Self::event_from_str(event_name) {
-            SomeEvent::Hardware(hw) => group.add(&perf_event::Builder::new(hw)),
-            SomeEvent::Software(sw) => group.add(&perf_event::Builder::new(sw)),
-            SomeEvent::None => Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                format!("Invalid event name {}", event_name),
-            )),
-        }
-    }
-
-    fn event_from_str(event_name: &str) -> SomeEvent
+    pub(crate) fn event_from_str(event_name: &str) -> SomeEvent
     {
         match event_name {
             "cycles" => SomeEvent::Hardware(Hardware::CPU_CYCLES),
@@ -62,7 +50,17 @@ impl PerfManager {
 
         for event_name in event_names {
 
-            let perf_counter = SomeEvent::build_counter(&mut group, event_name);
+            let perf_counter = {
+
+                match SomeEvent::event_from_str(event_name) {
+                    SomeEvent::Hardware(hw) => group.add(&perf_event::Builder::new(hw)),
+                    SomeEvent::Software(sw) => group.add(&perf_event::Builder::new(sw)),
+                    SomeEvent::None => Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        format!("Invalid event name {}", event_name),
+                    )),
+                }
+            };
 
             match perf_counter {
                 Ok(perf_counter) => {
@@ -88,6 +86,8 @@ impl PerfManager {
 
         group.reset().expect("Failed to initialize counters");
         group.enable().expect("Error enabling counters.");
+
+        assert_eq!(group.read().unwrap().len(), event_names.len());
 
         Some(Self{ group,  perf_to_extrae_map, perf_counters})
     }
