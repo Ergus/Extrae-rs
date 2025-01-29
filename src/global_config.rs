@@ -1,5 +1,3 @@
-
-use crate::perf::SomeEvent;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -10,7 +8,7 @@ pub(crate) struct GlobalConfig {
 impl GlobalConfig {
     pub(crate) fn new() -> GlobalConfig
     {
-        let mut tmp = config::Config::builder()
+        config::Config::builder()
             .set_default("counters", Vec::<String>::new())
             .expect("Failed to set default counters")
             .add_source(config::File::with_name("extrae").required(false))
@@ -22,11 +20,7 @@ impl GlobalConfig {
                 .list_separator(","))
             .build().unwrap()
             .try_deserialize::<GlobalConfig>()
-            .unwrap();
-
-        tmp.counters.retain(|name| ! matches!(SomeEvent::event_from_str(name), SomeEvent::None));
-
-        tmp
+            .unwrap()
     }
 }
 

@@ -3,6 +3,7 @@
 use std::sync::atomic;
 
 use crate::{Merger,buffer,global_config::GlobalConfig};
+use crate::perf::SomeEvent;
 
 pub struct GlobalInfo {
 
@@ -11,9 +12,10 @@ pub struct GlobalInfo {
 
     threads_running: atomic::AtomicU32,
 
-    pub thread_event_id: u16,
-
     pub(crate) config: GlobalConfig,
+
+    pub thread_event_id: u16,
+    pub events_info: Vec<(String, u16)>,
 }
 
 impl GlobalInfo {
@@ -22,7 +24,6 @@ impl GlobalInfo {
         println!("Initializing profiler");
 
         let config = GlobalConfig::new();
-        println!("Profiler enabled counters: {:?}", config.counters);
 
         let start_system_time =
             std::time::SystemTime::now()
@@ -49,12 +50,27 @@ impl GlobalInfo {
 
         let thread_event_id = name_set.register_event_name_internal("ThreadRuning");
 
+
+        let events_info: Vec<(String, u16)> =
+            config
+                .counters
+                .iter()
+                .filter(|name| ! matches!(SomeEvent::event_from_str(name), SomeEvent::None))
+                .map(|name| {
+                    let eid  = name_set.register_event_name_internal(name);
+                    (name.clone(), eid)
+                })
+                .collect();
+
+        println!("Profiler enabled counters: {:?}", events_info);
+
         Self {
             buffer_set,
             name_set,
             threads_running: atomic::AtomicU32::new(0),
             thread_event_id,
             config,
+            events_info
         }
     }
 

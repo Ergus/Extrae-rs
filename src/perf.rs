@@ -36,9 +36,9 @@ pub(crate) struct PerfManager {
 }
 
 impl PerfManager {
-    pub(crate) fn new(event_names: &[String]) -> Option<Self>
+    pub(crate) fn new(events_info: &Vec<(String, u16)>) -> Option<Self>
     {
-        if event_names.is_empty() {
+        if events_info.is_empty() {
             return None;
         }
 
@@ -48,11 +48,11 @@ impl PerfManager {
 
         let mut perf_counters: Vec<perf_event::Counter> = Vec::<perf_event::Counter>::new();
 
-        for event_name in event_names {
+        for (event_name, extrae_id) in events_info {
 
             let perf_counter = {
 
-                match SomeEvent::event_from_str(event_name) {
+                match SomeEvent::event_from_str(event_name.as_str()) {
                     SomeEvent::Hardware(hw) => group.add(&perf_event::Builder::new(hw)),
                     SomeEvent::Software(sw) => group.add(&perf_event::Builder::new(sw)),
                     SomeEvent::None => Err(std::io::Error::new(
@@ -65,15 +65,8 @@ impl PerfManager {
             match perf_counter {
                 Ok(perf_counter) => {
 
-                    let extrae_id = crate::GlobalInfo::register_event_name(
-                        event_name,
-                        None,
-                        None,
-                        None
-                    );
-
                     match perf_to_extrae_map.entry(perf_counter.id()) {
-                        Entry::Vacant(entry) => entry.insert(extrae_id),
+                        Entry::Vacant(entry) => entry.insert(*extrae_id),
                         Entry::Occupied(_) => panic!("Cannot insert event because it's id already exist"),
                     };
 
@@ -84,10 +77,17 @@ impl PerfManager {
             }
         }
 
+        assert_eq!(group.read().unwrap().len(), events_info.len());
+
         group.reset().expect("Failed to initialize counters");
         group.enable().expect("Error enabling counters.");
 
-        assert_eq!(group.read().unwrap().len(), event_names.len());
+        // Check that all the counters were enabled
+        assert_eq!(group.read().unwrap().len(), events_info.len());
+
+        // Check translation info.
+        assert_eq!(perf_counters.len(), events_info.len());
+        assert_eq!(perf_to_extrae_map.len(), events_info.len());
 
         Some(Self{ group,  perf_to_extrae_map, perf_counters})
     }
