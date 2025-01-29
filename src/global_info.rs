@@ -19,7 +19,10 @@ pub struct GlobalInfo {
 impl GlobalInfo {
     fn new() -> Self
     {
+        println!("Initializing profiler");
+
         let config = GlobalConfig::new();
+        println!("Profiler enabled counters: {:?}", config.counters);
 
         let start_system_time =
             std::time::SystemTime::now()
