@@ -114,16 +114,18 @@ impl GlobalInfo {
 
         let output_path = self.buffer_set.trace_directory_path.as_path();
 
-	self.buffer_set
+        self.buffer_set
             .create_row(output_path)
             .expect("Error creatiiing ROW file");
         self.name_set
             .create_pcf(output_path)
             .expect("Error creating PCF file");
 
-        Merger::new(output_path)      // path to read from
-            .create_prv(output_path)  // path to write to
-            .expect("Error creating PRV file");
+        if self.config.automerge {
+            Merger::new(output_path)      // path to read from
+                .create_prv(output_path)  // path to write to
+                .expect("Error creating PRV file");
+        }
 
         println!("# Profiler TraceDir: {}", output_path.to_str().unwrap());
     }

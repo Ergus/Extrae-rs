@@ -2,6 +2,7 @@ use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
 pub(crate) struct GlobalConfig {
+    pub(crate) automerge: bool,
     pub(crate) counters: Vec<String>, // Example array
 }
 
@@ -11,6 +12,8 @@ impl GlobalConfig {
         config::Config::builder()
             .set_default("counters", Vec::<String>::new())
             .expect("Failed to set default counters")
+            .set_default("automerge", true)
+            .expect("Failed to set default automerge")
             .add_source(config::File::with_name("extrae").required(false))
             .add_source(config::Environment::with_prefix("EXTRAE")
                 .ignore_empty(true)
