@@ -48,7 +48,7 @@ pub(crate) struct PerfManager {
 }
 
 impl PerfManager {
-    pub(crate) fn new(event_names: &[&str]) -> Option<Self>
+    pub(crate) fn new(event_names: &[String]) -> Option<Self>
     {
         if event_names.is_empty() {
             return None;

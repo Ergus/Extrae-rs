@@ -11,6 +11,8 @@ mod bufferset;
 
 mod perf;
 
+mod global_config;
+
 mod global_info;
 pub use global_info::GlobalInfo;
 

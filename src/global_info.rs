@@ -2,7 +2,7 @@
 
 use std::sync::atomic;
 
-use crate::{Merger,buffer};
+use crate::{Merger,buffer,global_config::GlobalConfig};
 
 pub struct GlobalInfo {
 
@@ -12,11 +12,15 @@ pub struct GlobalInfo {
     threads_running: atomic::AtomicU32,
 
     pub thread_event_id: u16,
+
+    pub(crate) config: GlobalConfig,
 }
 
 impl GlobalInfo {
     fn new() -> Self
     {
+        let config = GlobalConfig::new();
+
         let start_system_time =
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
@@ -45,10 +49,9 @@ impl GlobalInfo {
         Self {
             buffer_set,
             name_set,
-
             threads_running: atomic::AtomicU32::new(0),
-
-            thread_event_id
+            thread_event_id,
+            config,
         }
     }
 
@@ -133,6 +136,7 @@ impl GlobalInfo {
         }.finalize_buffer(buffer);
     }
 
+    #[inline]
     pub fn register_event_name(
         event_name: &str,
         file_name: Option<&str>,
@@ -173,13 +177,5 @@ impl GlobalInfo {
 
 
 }
-
-
-
-
-
-
-
-
 
 
