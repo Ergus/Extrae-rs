@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+use std::collections::BTreeMap;
 use std::sync::atomic;
 
 use crate::{Merger,buffer,global_config::GlobalConfig};
@@ -15,6 +16,8 @@ pub struct GlobalInfo {
     pub(crate) config: GlobalConfig,
 
     pub thread_event_id: u16,
+
+    // Hardware events ID
     pub events_info: Vec<(String, u16)>,
 }
 
@@ -50,15 +53,28 @@ impl GlobalInfo {
 
         let thread_event_id = name_set.register_event_name_internal("ThreadRuning");
 
+        // Register all the possible supported events to preserve the ids.
+        let all_events_info: BTreeMap<&str, u16> =
+            SomeEvent::EVENTS_LIST
+                .iter()
+                .map(|(name, _)| {
+                    let eid  = name_set.register_event_name_internal(&name);
+                    (*name, eid)
+                })
+                .collect();
 
+
+        // For events info we take all the input names and then
+        // iterate filtering only the valid names and registering
+        // them.
         let events_info: Vec<(String, u16)> =
             config
                 .counters
                 .iter()
                 .filter(|name| ! matches!(SomeEvent::event_from_str(name), SomeEvent::None))
                 .map(|name| {
-                    let eid  = name_set.register_event_name_internal(name);
-                    (name.clone(), eid)
+                    let eid  = all_events_info.get(name.as_str()).unwrap();
+                    (name.clone(), *eid)
                 })
                 .collect();
 

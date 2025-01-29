@@ -5,6 +5,7 @@ use perf_event::events::{Hardware, Software};
 
 use std::collections::{hash_map::Entry, HashMap};
 
+#[derive(Debug, Clone, Copy)]
 pub(crate) enum SomeEvent {
     Hardware(perf_event::events::Hardware),
     Software(perf_event::events::Software),
@@ -13,18 +14,23 @@ pub(crate) enum SomeEvent {
 
 impl SomeEvent {
 
+    pub(crate) const EVENTS_LIST: [(&str, SomeEvent); 7] = [
+        ("cycles", SomeEvent::Hardware(Hardware::CPU_CYCLES)),
+        ("instructions", SomeEvent::Hardware(Hardware::INSTRUCTIONS)),
+        ("cache-references", SomeEvent::Hardware(Hardware::CACHE_REFERENCES)),
+        ("cache-misses", SomeEvent::Hardware(Hardware::CACHE_MISSES)),
+        ("page-faults", SomeEvent::Software(Software::PAGE_FAULTS)),
+        ("context-switches", SomeEvent::Software(Software::CONTEXT_SWITCHES)),
+        ("cpu-migrations", SomeEvent::Software(Software::CPU_MIGRATIONS)),
+    ];
+
     pub(crate) fn event_from_str(event_name: &str) -> SomeEvent
     {
-        match event_name {
-            "cycles" => SomeEvent::Hardware(Hardware::CPU_CYCLES),
-            "instructions" => SomeEvent::Hardware(Hardware::INSTRUCTIONS),
-            "cache-references" => SomeEvent::Hardware(Hardware::CACHE_REFERENCES),
-            "cache-misses" => SomeEvent::Hardware(Hardware::CACHE_MISSES),
-            "page-faults" => SomeEvent::Software(Software::PAGE_FAULTS),
-            "context-switches" => SomeEvent::Software(Software::CONTEXT_SWITCHES),
-            "cpu-migrations" => SomeEvent::Software(Software::CPU_MIGRATIONS),
-            _ => SomeEvent::None, // Unknown event
-        }
+        Self::EVENTS_LIST
+            .iter()
+            .find(|x| x.0 == event_name)
+            .map(|x| x.1)
+            .unwrap_or(SomeEvent::None)
     }
 
 }
