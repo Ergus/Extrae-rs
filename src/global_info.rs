@@ -187,6 +187,7 @@ impl GlobalInfo {
 /// for now.
 static mut INFO: Option<GlobalInfo> = None;
 
+#[allow(static_mut_refs)]
 impl GlobalInfo {
 
     /// Get a shared const reference to the Global info.
