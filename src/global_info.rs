@@ -36,6 +36,8 @@ impl GlobalInfo {
     {
         println!("Initializing profiler");
 
+        assert_eq!(std::thread::current().name(), Some("main"));
+
         let config = GlobalConfig::new();
 
         let start_system_time =
