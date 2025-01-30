@@ -22,6 +22,16 @@ pub struct GlobalInfo {
 }
 
 impl GlobalInfo {
+    /// Global info constructor.
+    ///
+    /// This is a critical function that we use to initialize the
+    /// profiler information. It initializes internal variables,
+    /// hwcounters and all global information that is intended to not
+    /// change during the execution and need to be shared/accesed by
+    /// all the threads when created.
+    ///
+    /// That constant information can be accessed lock free as they
+    /// are not mutable.
     fn new() -> Self
     {
         println!("Initializing profiler");
@@ -90,12 +100,22 @@ impl GlobalInfo {
         }
     }
 
+    /// Create a new buffer for a thread
+    ///
+    /// This function is called every time a new thread is created and
+    /// it updates the running_threads counter.
     fn init_buffer(&mut self, tid: std::thread::ThreadId, name: &str) -> buffer::Buffer
     {
         self.threads_running.fetch_add(1, atomic::Ordering::Relaxed);
         self.buffer_set.get_buffer(tid, name)
     }
 
+    /// Save a buffer information before a thread is destroyed
+    ///
+    /// This function is called every time a new thread finalizes and
+    /// it updates the running_threads counter. When the counter
+    /// reaches zero it calls the finalize function to perform io
+    /// actions.
     fn finalize_buffer(&mut self, buffer: &buffer::Buffer)
     {
         self.buffer_set.save_buffer_id(&buffer);
@@ -108,6 +128,21 @@ impl GlobalInfo {
         }
     }
 
+    /// This is the finalization function.
+    ///
+    /// It performs the io operations to output the .row, .pcf and
+    /// merge the .prv file (when automerge is enabled)
+    ///
+    /// This is not in the Drop because this is called by the last
+    /// thread when destroyed. Rust seems not to call the destructor
+    /// for global variables even at the end of the main, but it calls
+    /// the thread_local variables destructor.
+    ///
+    /// For this reason this class has the threads_running counter
+    /// that is updated every time a new thread is created/destroyed
+    /// (in the finalize_buffer function). When it reaches zero it
+    /// calls this function. As this can only happen when the last
+    /// thread is destroyed we don't have race condition risk.
     fn finalize(&self)
     {
         println!("Finalizing profiler");
@@ -132,16 +167,27 @@ impl GlobalInfo {
 
 }
 
-// Here I will use an option in order to allow lazy initialization.
-// This will force me to use unsafe code, but at leats I won't need to
-// have a global Mutex for every access to the global information.
-// The internal functions already have a lock when needed.
-// The initialization happens in main and the risk of multiple attempts
-// to initialize is very low, so we ignore it for now.
+/// This is the variable to store the global information.
+/// Here I will use an option in order to allow lazy initialization because
+/// I need it to be mutable.
+///
+/// This forces me to use unsafe wrappers to access it, but at leats I
+/// won't need to have a global mutex for every access to the global
+/// information.
+///
+/// The internal functions already have a lock when needed.  The
+/// initialization is intended to take place in the main, and the risk
+/// of multiple attempts to initialize is very low, so we ignore it
+/// for now.
 static mut INFO: Option<GlobalInfo> = None;
 
 impl GlobalInfo {
 
+    /// Get a shared const reference to the Global info.
+    /// This is for internal use and our code ensures to use it
+    /// properly to access only constant values.
+    /// For mutable values I provide proper access wrappers and the
+    /// inner functions already have a lock when needed..
     pub(crate) fn as_ref() -> &'static GlobalInfo
     {
         unsafe {
@@ -177,6 +223,11 @@ impl GlobalInfo {
         }.finalize_buffer(buffer);
     }
 
+    /// Internal api function to register a new event name.
+    /// The arguments are as described ny their names.
+    /// Remember that the events are identified by their id, not by
+    /// their names; so, multiple ids can repeat names and they will be
+    /// difficult to identify in the final trace.
     #[inline]
     pub fn register_event_name(
         event_name: &str,
@@ -191,6 +242,8 @@ impl GlobalInfo {
         }
     }
 
+    /// The paraver format can assign names also to the values of the
+    /// events. Even when not needed, this is a useful feature to use.
     pub fn register_event_value_name(
         event_name: &str,
         file_name: Option<&str>,
@@ -205,6 +258,11 @@ impl GlobalInfo {
         }
     }
 
+    /// Get the event value associated information.
+    /// This function was intended to be used in the subscriber, but
+    /// I preferred to use a different approach to avoid creating excessive
+    /// contention.
+    /// This function takes a read lock internally while it searches in a map.
     pub(crate) fn get_event_value_info(
         event: u16,
         value: Option<u32>
