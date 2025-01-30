@@ -25,7 +25,7 @@ jobs:
         run: cargo test --features profiling -- --nocapture
 
   extrae-rs-hwcounters:
-    name: Run extrae-rs tests
+    name: Run extrae-rs sw counter tests
     runs-on: ubuntu-latest
 
     steps:
@@ -43,5 +43,5 @@ jobs:
 
       - name: Run test threads
         env:
-          EXTRAE_counters: "cpu-migrations"
+          EXTRAE_counters: "cpu-migrations,context-switches"
         run: ./target/debug/program_threads
