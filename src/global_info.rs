@@ -145,7 +145,11 @@ impl GlobalInfo {
     pub(crate) fn as_ref() -> &'static GlobalInfo
     {
         unsafe {
-            INFO.get_or_insert_with(|| GlobalInfo::new()) as &GlobalInfo
+            if let None = INFO {
+                INFO = Some(GlobalInfo::new());
+            }
+
+            INFO.as_ref().unwrap_unchecked()
         }
     }
 
