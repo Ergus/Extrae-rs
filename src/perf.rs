@@ -3,8 +3,6 @@
 use perf_event;
 use perf_event::events::{Hardware, Software};
 
-use std::collections::{hash_map::Entry, HashMap};
-
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum SomeEvent {
     Hardware(perf_event::events::Hardware),
@@ -44,26 +42,28 @@ impl SomeEvent {
 
 }
 
+struct EventInfo {
+    event: perf_event::Counter,
+    extrae_id: u16,
+}
+
 pub(crate) struct PerfManager {
     pub(crate) group: perf_event::Group,
-    perf_to_extrae_map: HashMap<u64, u16>,
-    perf_counters: Vec<perf_event::Counter>,
+    events_info: Vec<EventInfo>,
 }
 
 impl PerfManager {
-    pub(crate) fn new(events_info: &Vec<(String, u16)>) -> Option<Self>
+    pub(crate) fn new(input_info: &Vec<(String, u16)>) -> Option<Self>
     {
-        if events_info.is_empty() {
+        if input_info.is_empty() {
             return None;
         }
 
         let mut group = perf_event::Group::new().expect("Cannot build event group");
 
-        let mut perf_to_extrae_map = HashMap::<u64, u16>::new();
+        let mut events_info: Vec<EventInfo> = Vec::<EventInfo>::with_capacity(input_info.len());
 
-        let mut perf_counters: Vec<perf_event::Counter> = Vec::<perf_event::Counter>::new();
-
-        for (event_name, extrae_id) in events_info {
+        for (event_name, extrae_id) in input_info {
 
             let perf_counter = {
 
@@ -79,14 +79,11 @@ impl PerfManager {
 
             match perf_counter {
                 Ok(perf_counter) => {
-
-                    match perf_to_extrae_map.entry(perf_counter.id()) {
-                        Entry::Vacant(entry) => entry.insert(*extrae_id),
-                        Entry::Occupied(_) => panic!("Cannot insert event because it's id already exist"),
-                    };
-
-
-                    perf_counters.push(perf_counter);
+                    events_info.push(
+                        EventInfo{
+                            event: perf_counter,
+                            extrae_id: *extrae_id
+                        });
                 },
                 Err(error) => eprintln!("{}", error)
             }
@@ -101,10 +98,9 @@ impl PerfManager {
         assert_eq!(group.read().unwrap().len(), events_info.len());
 
         // Check translation info.
-        assert_eq!(perf_counters.len(), events_info.len());
-        assert_eq!(perf_to_extrae_map.len(), events_info.len());
+        assert_eq!(events_info.len(), events_info.len());
 
-        Some(Self{ group,  perf_to_extrae_map, perf_counters})
+        Some(Self{group, events_info})
     }
 
     /// Add a software or hardware event.
@@ -114,18 +110,17 @@ impl PerfManager {
         let entries = self.group.read().expect("Failed reading counters.");
         assert_ne!(entries.len(), 0);
 
-        let mut res = Vec::<(u16, u32)>::new();
+        entries.iter()
+            .zip(&self.events_info)
+            .filter_map(|(entry, event_info)| {
+                assert_eq!(entry.id(), event_info.event.id());
 
-        for entry in entries.iter() {
-            let perf_id = entry.id();
-            let extrae_id = self.perf_to_extrae_map
-                .get(&perf_id)
-                .expect("Internal profiler error");
-
-            let value = entry.value();
-            res.push((extrae_id.clone(), value.try_into().expect("Overflow in event to value conversion")));
-        }
-        res
+                match entry.value().try_into() {
+                    Ok(value) if value == 0 => None,
+                    Ok(value) => Some((event_info.extrae_id, value)),
+                    Err(e) => panic!("Overflow in event to value conversion: {:?}", e),
+                }
+            }).collect()
     }
 
 }
