@@ -43,7 +43,7 @@ impl SomeEvent {
 }
 
 struct EventInfo {
-    event: perf_event::Counter,
+    event: perf_event::Counter, // this object needs to be alive
     extrae_id: u16,
 }
 
@@ -53,7 +53,7 @@ pub(crate) struct PerfManager {
 }
 
 impl PerfManager {
-    pub(crate) fn new(input_info: &Vec<(String, u16)>) -> Option<Self>
+    pub(crate) fn new(input_info: &[(String, u16)]) -> Option<Self>
     {
         if input_info.is_empty() {
             return None;
@@ -61,44 +61,40 @@ impl PerfManager {
 
         let mut group = perf_event::Group::new().expect("Cannot build event group");
 
-        let mut events_info: Vec<EventInfo> = Vec::<EventInfo>::with_capacity(input_info.len());
+        let events_info: Vec<EventInfo>
+            = input_info.iter().filter_map(
+                |(event_name, extrae_id)| {
 
-        for (event_name, extrae_id) in input_info {
+                    let perf_counter
+                        = match SomeEvent::event_from_str(event_name.as_str()) {
+                            SomeEvent::Hardware(hw) => group.add(&perf_event::Builder::new(hw)),
+                            SomeEvent::Software(sw) => group.add(&perf_event::Builder::new(sw)),
+                            SomeEvent::None => Err(std::io::Error::new(
+                                std::io::ErrorKind::InvalidInput,
+                                format!("Invalid event name {}", event_name),
+                            )),
+                        };
 
-            let perf_counter = {
-
-                match SomeEvent::event_from_str(event_name.as_str()) {
-                    SomeEvent::Hardware(hw) => group.add(&perf_event::Builder::new(hw)),
-                    SomeEvent::Software(sw) => group.add(&perf_event::Builder::new(sw)),
-                    SomeEvent::None => Err(std::io::Error::new(
-                        std::io::ErrorKind::InvalidInput,
-                        format!("Invalid event name {}", event_name),
-                    )),
+                    match perf_counter {
+                        Ok(perf_counter) => {
+                            Some(EventInfo{
+                                event: perf_counter,
+                                extrae_id: *extrae_id
+                            })
+                        },
+                        Err(error) => {
+                            eprintln!("{}", error);
+                            None
+                        }
+                    }
                 }
-            };
-
-            match perf_counter {
-                Ok(perf_counter) => {
-                    events_info.push(
-                        EventInfo{
-                            event: perf_counter,
-                            extrae_id: *extrae_id
-                        });
-                },
-                Err(error) => eprintln!("{}", error)
-            }
-        }
-
-        assert_eq!(group.read().unwrap().len(), events_info.len());
+            ).collect();
 
         group.reset().expect("Failed to initialize counters");
         group.enable().expect("Error enabling counters.");
 
-        // Check that all the counters were enabled
+        assert_eq!(input_info.len(), events_info.len());
         assert_eq!(group.read().unwrap().len(), events_info.len());
-
-        // Check translation info.
-        assert_eq!(events_info.len(), events_info.len());
 
         Some(Self{group, events_info})
     }
