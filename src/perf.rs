@@ -14,14 +14,23 @@ pub(crate) enum SomeEvent {
 
 impl SomeEvent {
 
-    pub(crate) const EVENTS_LIST: [(&str, SomeEvent); 7] = [
+    pub(crate) const EVENTS_LIST: [(&str, SomeEvent); 15] = [
         ("cycles", SomeEvent::Hardware(Hardware::CPU_CYCLES)),
         ("instructions", SomeEvent::Hardware(Hardware::INSTRUCTIONS)),
         ("cache-references", SomeEvent::Hardware(Hardware::CACHE_REFERENCES)),
         ("cache-misses", SomeEvent::Hardware(Hardware::CACHE_MISSES)),
+        ("branch-instructions", SomeEvent::Hardware(Hardware::BRANCH_INSTRUCTIONS)),
+        ("branch-misses", SomeEvent::Hardware(Hardware::BRANCH_MISSES)),
+        ("bus-cycles", SomeEvent::Hardware(Hardware::BUS_CYCLES)),
+        ("stalled-cycles-frontend", SomeEvent::Hardware(Hardware::STALLED_CYCLES_FRONTEND)),
+        ("stalled-cycles-backend", SomeEvent::Hardware(Hardware::STALLED_CYCLES_BACKEND)),
+        ("ref-cpu-cycles", SomeEvent::Hardware(Hardware::REF_CPU_CYCLES)),
+
         ("page-faults", SomeEvent::Software(Software::PAGE_FAULTS)),
         ("context-switches", SomeEvent::Software(Software::CONTEXT_SWITCHES)),
         ("cpu-migrations", SomeEvent::Software(Software::CPU_MIGRATIONS)),
+        ("page-faults-min", SomeEvent::Software(Software::PAGE_FAULTS_MIN)),
+        ("page-faults-maj", SomeEvent::Software(Software::PAGE_FAULTS_MAJ)),
     ];
 
     pub(crate) fn event_from_str(event_name: &str) -> SomeEvent
