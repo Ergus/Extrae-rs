@@ -100,16 +100,28 @@ cargo expand --bin program --features profiling
 ## Perf integration
 
 The code includes perf events integration and supports the following
-events: `cycles`, `instructions`, `cache-references`, `cache-misses`,
-`page-faults`, `context-switches`, `cpu-migrations`.
 
-The events are tracked / thread.
+Hardware:
+
+	`cycles`, `instructions`, `cache-references`, `cache-misses`,
+	`branch-instructions`, `branch-misses`, `bus-cycles`,
+	`stalled-cycles-frontend`, `stalled-cycles-backend`, `ref-cpu-cycles`,
+	`page-faults`, `context-switches`, `cpu-migrations`,
+	`page-faults-min`, `page-faults-maj`.
+
+Software:
+
+	`page-faults` `context-switches` `cpu-migrations` `page-faults-min`
+	`page-faults-maj`.
+
+The events are tracked per thread.
 
 The user can specify the desired events with 2 methods:
 
 1. Environment variables:
+
 ```bash
-`EXTRAE_counters="cycles,cache-misses" ./target/debug/program`
+EXTRAE_COUNTERS="cycles,cache-misses" ./target/debug/program
 ```
 
 2. With a config file. Create a toml file in the execution directory
@@ -120,8 +132,9 @@ counters = ["cycles", "cache-misses"]
 ```
 
 and execute the program as usual:
+
 ```bash
-./target/debug/program`
+./target/debug/program
 ```
 
 The profiler initialization informs about the enabled counters.
@@ -133,13 +146,29 @@ Without the `--features profiling` here (or when importing the crate)
 no instrumentation will be generated at all.
 
 After the execution of instrumented code the profiler creates a new
-`TRACE\_[timestamp]` directory. It contains multiple trace files:
+directory `TRACE_[suffix]`. The configuration option `suffix` can be
+used to specify the `[suffix]`.
+
+```bash
+EXTRAE_SUFFIX="mysuffix" ./target/debug/program
+```
+
+This option can be specified in a configuration file equivalent see
+[Perf integration](#perf-integration).
+
+By default the suffix is the timespamp of the execution unix time. An
+error will be triggered if the directory `TRACE_[suffix]` already
+exist.
+
+The profiler prints the name of the directory at the end of the
+execution, which is useful when the directory name is auto-generated.
+
+### Trace direcotry format
+
+The trace directory directory contains multiple trace files:
 `Trace_[tid].bin`. There is one of such files for every thread created
 during the program execution, where `[tid]` is the internal thread
 id. The main thread is always 1.
-
-The profiler prints the name of the directory at the end of the
-execution.
 
 The `Trace_*.bin` files are binary files with all the trace events. The
 final trace needs to merge all the files in order to visualize them
@@ -154,6 +183,6 @@ be used to read the binary trace file as plain text.
 For example:
 
 ```shell
-./target/debug/visualizer TRACEDIR_1735338966/Trace_1
+./target/debug/visualizer TRACEDIR_1735338966/Trace_1.bin
 ```
 
