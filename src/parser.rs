@@ -186,8 +186,7 @@ impl Merger {
     ///
     /// This function instead opens all the trace files
     /// simultaneously.  The first entries in every thread are saved
-    /// in a reversed priority queue (BinaryHeap) with 1
-    /// entry/thread.
+    /// in a reversed priority queue (BinaryHeap) with 1 entry/thread.
     ///
     /// The principal loop requests the next entry from the BinaryHeap
     /// (the one with the lower timestamp) and restores it with the
@@ -202,8 +201,6 @@ impl Merger {
           std::collections::BTreeSet<u16>,
           u64
     ) {
-        let mut heap = std::collections::BinaryHeap::new();
-
         let mut trace_iters: Vec<_>
             = file_paths
                 .iter()
@@ -226,6 +223,8 @@ impl Merger {
 
         let mut counter = 0;
 
+        let mut heap = std::collections::BinaryHeap::new();
+
         for (index, trace_iter) in trace_iters.iter_mut().enumerate() {
             if let Some(entry) = trace_iter.next() {
                 heap.push(std::cmp::Reverse((entry, index)));
@@ -243,7 +242,9 @@ impl Merger {
                 if next_entry.hdr == entry.hdr {
                     ext_entry.events.push(next_entry.info);
                 } else {
+                    assert!(next_entry.hdr.time > entry.hdr.time);
                     heap.push(std::cmp::Reverse((next_entry, index)));
+                    break;
                 }
             }
             cores.insert(ext_entry.core);
