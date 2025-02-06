@@ -4,7 +4,7 @@ This project is a sort of rust improved reimplementation of
 [ExtraeWin](https://github.com/Ergus/ExtraeWin). The main goal is to
 use native rust code to generate instrumentation for highly
 concurrency code. In a format compatible with the
-[Paraver][https://tools.bsc.es/paraver] flexible performance analysis
+[Paraver](https://tools.bsc.es/paraver) flexible performance analysis
 tool.
 
 For more complex or distributed systems (specially outside the Rust
@@ -55,9 +55,10 @@ fn myfunction2()
 
 	// This is a scope to be instrumented with a custom value
 	{
-		instrument_scope!("MyScope2");
+		instrument_scope!("MyScope2"); // Scope always need name
 		// Some code
 		instrument_update!(10); // Can use any possitive value > 1
+		// Some more code
 	}
 
 }
@@ -75,7 +76,7 @@ fn myfunction3()
 
 With procedural macros we can instrument complete functions more
 easily.  However to instrument scopes we still need to use declarative
-macros.
+macros. Because AFAIK rust doesn't allow to use procedural in scopes.
 
 
 ```rust
@@ -105,7 +106,7 @@ fn myfunction3()
 
 ### Tokio integration.
 
-Tokio already has imtegration with the
+Tokio already has integration with the
 [tracing](https://crates.io/crates/tracing) crate. While the method it
 uses is a bit different in philosophy, Extrae-rs provides out of the
 box integration and some extra features.
@@ -117,16 +118,23 @@ box integration and some extra features.
 async fn task1() {
     info!(value = 5, "Task 1 started");
     time::sleep(Duration::from_millis(500)).await;
+
+	// You can instrument scopes as usual here.
+	{
+		instrument_scope!("MyScope");
+		// Some code
+	}
  }
 
 #[tokio::main]
 async fn main() {
 
-    // Set up a subscriber that logs to stdout
+    // Set up the Extrae-rs subscriber
     let subscriber = ExtraeSubscriber::new();
     set_global_default(subscriber).expect("Could not set global default subscriber");
 
-    // Run tasks concurrently
+    // Run tasks concurrently, better if the tasks are instrumented
+	// with #[tracing::instrument] as shown above
     let handle1 = task::spawn(task1());
 
     let handle2 = task::spawn(task1());
@@ -137,8 +145,7 @@ async fn main() {
 
 ```
 
-We provide test programs code for all cases and the user can mix
-syntaxes.
+We provide test programs code for all cases in the [bin](./bin) folder.
 
 
 ```shell
