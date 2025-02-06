@@ -2,6 +2,14 @@
 name = "extrae-macros"
 version = "0.1.0"
 edition = "2021"
+authors = ["Jimmy Aguilar <kratsbinovish@gmail.com>"]
+description = "This crate provides an instrumentation based trace generator for Paraver in pure Rust."
+license = "GPL-2.0"
+readme = "Readme.md"
+repository = "https://github.com/Ergus/Extrae-rs"
+homepage = "https://github.com/Ergus/Extrae-rs"
+keywords = ["performance", "profiling"]
+categories = ["development-tools::profiling"]
 
 [lib]
 proc-macro = true # Important: This declares it as a proc-macro crate

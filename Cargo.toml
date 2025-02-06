@@ -1,7 +1,18 @@
+[workspace]
+members = ["extrae-macros"]
+
 [package]
 name = "extrae-rs"
 version = "0.1.0"
 edition = "2021"
+authors = ["Jimmy Aguilar <kratsbinovish@gmail.com>"]
+description = "This crate provides an instrumentation based trace generator for Paraver in pure Rust."
+license = "GPL-2.0"
+readme = "Readme.md"
+repository = "https://github.com/Ergus/Extrae-rs"
+homepage = "https://github.com/Ergus/Extrae-rs"
+keywords = ["performance", "profiling"]
+categories = ["development-tools::profiling"]
 
 [dependencies]
 config = "0.15.4"
@@ -13,9 +24,7 @@ tokio = { version = "1.42.0", features = ["full"] }
 tracing-subscriber = "0.3"
 serde = "1.0.217"
 
-[dependencies.extrae-macros]
-path = "extrae-macros" # Crucial: Path to the proc-macro crate
-version = "0.1.0"
+extrae-macros = { path = "extrae-macros", version = "0.1.0"}  # Local dependency
 
 [[bin]]
 name = "program_threads"
