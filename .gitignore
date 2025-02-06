@@ -1,3 +1,4 @@
 /target
 TRACEDIR_*
 .gdb_history
+*.profraw

@@ -24,6 +24,30 @@ jobs:
       - name: Run tests
         run: cargo test --features profiling -- --nocapture
 
+  extrae-rs-executables:
+    name: Run extrae-rs sw counter tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Build everything
+        run: cargo build --features profiling
+
+      - name: Enable perf permissions
+        run: sudo sysctl -w kernel.perf_event_paranoid=1
+
+      - name: Run test threads
+        run: |
+           cargo run --bin program_declarative --features profiling
+           cargo run --bin program_procedural --features profiling
+           cargo run --bin program_tokio --features profiling
+           cargo run --bin program_threads --features profiling
+
   extrae-rs-hwcounters:
     name: Run extrae-rs sw counter tests
     runs-on: ubuntu-latest
@@ -44,4 +68,49 @@ jobs:
       - name: Run test threads
         env:
           EXTRAE_counters: "cpu-migrations,context-switches"
-        run: ./target/debug/program_threads
+        run: |
+          cargo run --bin program_declarative --features profiling
+          cargo run --bin program_procedural --features profiling
+          cargo run --bin program_tokio --features profiling
+          cargo run --bin program_threads --features profiling
+
+
+
+  coverage:
+    name: Coverage on ubuntu
+    runs-on: ubuntu-latest
+    needs: [extrae-rs-tests, extrae-rs-executables, extrae-rs-hwcounters]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Install grcov
+        run: cargo install grcov
+
+      - name: Install llvm-tools
+        run: rustup component add llvm-tools-preview
+
+      - name: Enable perf permissions
+        run: sudo sysctl -w kernel.perf_event_paranoid=1
+
+      - name: Run tests with coverage
+        env:
+          EXTRAE_counters: "cpu-migrations,context-switches"
+          RUSTFLAGS: "-Cinstrument-coverage"
+          LLVM_PROFILE_FILE: "extrae-rs-%p-%m.profraw"
+        run: |
+           cargo run --bin program_declarative --features profiling
+           cargo run --bin program_procedural --features profiling
+           cargo run --bin program_tokio --features profiling
+           cargo run --bin program_threads --features profiling
+           grcov . --binary-path ./target/debug/ -s . -t lcov --branch --ignore-not-existing --ignore "/*" -o ./lcov.info
+
+      - name: Upload coverage to Coveralls
+        uses: coverallsapp/github-action@master
+        with:
+            github-token: ${{ secrets.GITHUB_TOKEN }}
+            path-to-lcov: ./lcov.info
