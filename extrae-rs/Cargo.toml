@@ -1,0 +1,47 @@
+[package]
+name = "extrae-rs"
+version = "0.1.0"
+edition = "2021"
+authors = ["Jimmy Aguilar <kratsbinovish@gmail.com>"]
+description = "This crate provides an instrumentation based trace generator for Paraver in pure Rust."
+license = "GPL-2.0"
+readme = "Readme.md"
+repository = "https://github.com/Ergus/Extrae-rs"
+homepage = "https://github.com/Ergus/Extrae-rs"
+keywords = ["performance", "profiling"]
+categories = ["development-tools::profiling"]
+
+[dependencies]
+config = "0.15.4"
+chrono = "0.4.39"
+tracing = "0.1.41"
+perf-event2 = "0.7.4"
+nix = { version = "0.29.0", features = ["sched","fs","hostname","feature"] }
+tokio = { version = "1.42.0", features = ["full"] }
+tracing-subscriber = "0.3"
+serde = "1.0.217"
+
+extrae-macros = { path = "../extrae-macros", version = "0.1.0"}  # Local dependency
+
+[[bin]]
+name = "program_threads"
+path = "bin/program_threads.rs"
+
+[[bin]]
+name = "program_declarative"
+path = "bin/program_declarative.rs"
+
+[[bin]]
+name = "program_procedural"
+path = "bin/program_procedural.rs"
+
+[[bin]]
+name = "program_tokio"
+path = "bin/program_tokio.rs"
+
+[[bin]]
+name = "visualizer"
+path = "bin/visualizer.rs"
+
+[features]
+profiling = [] # Define the profiling feature (can be empty)
