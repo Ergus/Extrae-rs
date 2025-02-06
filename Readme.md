@@ -1,16 +1,34 @@
 # Readme
 
-> **_NOTE:_**  This project is not totally functional yet.
-
 This project is a sort of rust improved reimplementation of
-[ExtraeWin](https://github.com/Ergus/ExtraeWin).
+[ExtraeWin](https://github.com/Ergus/ExtraeWin). The main goal is to
+use native rust code to generate instrumentation for highly
+concurrency code. In a format compatible with the
+[Paraver][https://tools.bsc.es/paraver] flexible performance analysis
+tool.
 
-The main goal is to use native rust code to generate instrumentation
-for highly concurrency code.
+For more complex or distributed systems (specially outside the Rust
+world) and HPC I strongly recommend using
+[Extrae](https://tools.bsc.es/extrae) instead of this.
+
+The current implementation is intended to work almost lock-free and
+with minimal overhead for traces generation.  Currently the code needs
+to be instrumented with some of the methods described in the
+[Usage](#usage) section.
+
+There are pending features in the [TODO](#todo) section but the
+project is functional AS IS. I am open to new features and features
+requests with a compromise to include them if they fit in the project
+objective, are intended to be really useful and don't imply any extra
+performance impact/overhead or excessive complexity.
 
 ## Usage
 
-At the moment the core includes 3 instrumentation methods:
+At the moment the core includes 3 instrumentation methods. Using a
+single methods to instrument is generally preferred (the best
+instrumentation is the one that does not bother your code
+logic). However, the three methods can be freely mixed if the user
+wants to.
 
 ### With declarative macros:
 
@@ -19,18 +37,33 @@ At the moment the core includes 3 instrumentation methods:
 // This instruments all the function scope
 fn myfunction()
 {
-    instrument_function!(); 
+    instrument_function!();
     // Some code
+
+	// This is a scope to be instrumented automatically
+	{
+		instrument_scope!("MyScope");
+		// Some code
+	}
 }
 
-// Specifying the function name
+// Specifying the function name to show in the trace
 fn myfunction2()
 {
     instrument_function!("MyFunction2_manual");
     // Some code
+
+	// This is a scope to be instrumented with a custom value
+	{
+		instrument_scope!("MyScope2");
+		// Some code
+		instrument_update!(10); // Can use any possitive value > 1
+	}
+
 }
 
-// Also specify the event number
+// Also specify the event number, this is usefull when we want to enforce
+// events numbers to create fancy paraver events filters.
 fn myfunction3()
 {
     instrument_function!("MyFunction3_manual_value_20", 20);
@@ -40,20 +73,29 @@ fn myfunction3()
 
 ### With procedural macros:
 
+With procedural macros we can instrument complete functions more
+easily.  However to instrument scopes we still need to use declarative
+macros.
+
+
 ```rust
 
+// This instruments all the function scope
 #[extrae_profile]
 fn myfunction()
 {
     // Some code
 }
 
+// Specifying the function name to show in the trace
 #[extrae_profile(name="MyFunction2_manual")]
 fn myfunction2()
 {
     // Some code
 }
 
+// Also specify the event number, this is usefull when we want to enforce
+// events numbers to create fancy paraver events filters.
 #[extrae_profile(name="MyFunction3_manual_value_20",value=20)]
 fn myfunction3()
 {
@@ -62,6 +104,12 @@ fn myfunction3()
 ```
 
 ### Tokio integration.
+
+Tokio already has imtegration with the
+[tracing](https://crates.io/crates/tracing) crate. While the method it
+uses is a bit different in philosophy, Extrae-rs provides out of the
+box integration and some extra features.
+
 
 ```rust
 
@@ -163,7 +211,7 @@ exist.
 The profiler prints the name of the directory at the end of the
 execution, which is useful when the directory name is auto-generated.
 
-### Trace direcotry format
+### Trace directory format
 
 The trace directory directory contains multiple trace files:
 `Trace_[tid].bin`. There is one of such files for every thread created
@@ -182,7 +230,41 @@ be used to read the binary trace file as plain text.
 
 For example:
 
+### Paraver basics description
+
+Paraver events have 2 basic parameters: `id` and `value`.
+
+For functions and scoped events the `id` is internally assigned by the
+profiler during the execution. A `value=1` indicate the event is
+starting in that point and `value=0` indicates the end of the
+event.
+
+The user don't need to emit those values manually and the provided
+macros automate these values.
+
+Any `value > 1` can be emitted with the `instrument_update` macro in
+order to have more detailed information of the function's parts.
+
+When enables, other events like performance counters are emitted
+together with the instrumented ones.
+
+You can find a set of [Paraver
+tutorials](https://tools.bsc.es/paraver-tutorials) from their
+creators. And a useful video introduction to
+[Paraver](https://www.youtube.com/watch?v=R8_EhVpOzb0)
+
+
 ```shell
 ./target/debug/visualizer TRACEDIR_1735338966/Trace_1.bin
 ```
 
+## TODO
+
+1. OTF2 format generator. To use with vampir and other profilers.
+2. CTF format. There are some nice tools to work with this format, but
+   nothing that paraver can't do with a right config.  Any way I
+   consider this because it is intended to be very simple to
+   implement.
+3. Add compatibility with the
+   [profiling](https://crates.io/crates/profiling) crate. This works
+   almost exactly like this project, but with different macro names.
