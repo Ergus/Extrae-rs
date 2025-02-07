@@ -25,7 +25,7 @@ jobs:
         run: cargo test --features profiling -- --nocapture
 
   extrae-rs-executables:
-    name: Run extrae-rs sw counter tests
+    name: Run extrae-rs executables
     runs-on: ubuntu-latest
 
     steps:
@@ -38,15 +38,20 @@ jobs:
       - name: Build everything
         run: cargo build --features profiling
 
-      - name: Enable perf permissions
-        run: sudo sysctl -w kernel.perf_event_paranoid=1
-
-      - name: Run test threads
+      - name: Run all executables
         run: |
            cargo run --bin program_declarative --features profiling
            cargo run --bin program_procedural --features profiling
            cargo run --bin program_tokio --features profiling
            cargo run --bin program_threads --features profiling
+
+      - name: Run visualizer
+        env:
+          EXTRAE_SUFFIX: "mythreads"
+        run: |
+           cargo run --bin program_threads --features profiling
+           cargo run --bin visualizer TRACEDIR_mythreads/Trace_1.bin
+
 
   extrae-rs-hwcounters:
     name: Run extrae-rs sw counter tests
@@ -69,12 +74,10 @@ jobs:
         env:
           EXTRAE_counters: "cpu-migrations,context-switches"
         run: |
-          cargo run --bin program_declarative --features profiling
-          cargo run --bin program_procedural --features profiling
-          cargo run --bin program_tokio --features profiling
-          cargo run --bin program_threads --features profiling
-
-
+           cargo run --bin program_declarative --features profiling
+           cargo run --bin program_procedural --features profiling
+           cargo run --bin program_tokio --features profiling
+           cargo run --bin program_threads --features profiling
 
   coverage:
     name: Coverage on ubuntu
@@ -103,10 +106,7 @@ jobs:
           RUSTFLAGS: "-Cinstrument-coverage"
           LLVM_PROFILE_FILE: "extrae-rs-%p-%m.profraw"
         run: |
-           cargo run --bin program_declarative --features profiling
-           cargo run --bin program_procedural --features profiling
-           cargo run --bin program_tokio --features profiling
-           cargo run --bin program_threads --features profiling
+           cargo test --features profiling -- --nocapture
            grcov . --binary-path ./target/debug/ -s . -t lcov --branch --ignore-not-existing --ignore "/*" -o ./lcov.info
 
       - name: Upload coverage to Coveralls
