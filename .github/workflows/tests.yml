@@ -20,6 +20,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+          profile: minimal
 
       - name: Run tests
         run: cargo test --features profiling -- --nocapture
@@ -34,6 +35,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+          profile: minimal
 
       - name: Build everything
         run: cargo build --features profiling
@@ -90,12 +92,10 @@ jobs:
         with:
           toolchain: stable
           override: true
+          components: llvm-tools-preview
 
       - name: Install grcov
         run: cargo install grcov
-
-      - name: Install llvm-tools
-        run: rustup component add llvm-tools-preview
 
       - name: Enable perf permissions
         run: sudo sysctl -w kernel.perf_event_paranoid=1
