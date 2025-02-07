@@ -16,7 +16,7 @@ fn test_program(executable: &str)
     let stdout = String::from_utf8_lossy(&output.stdout);
 
     if !output.status.success() {
-        #[cfg_attr(coverage, no_coverage)]
+        #[cfg_attr(coverage, coverage(off))]
         {
             // Capture stdout and stderr
             println!("stdout:\n{}", stdout);
