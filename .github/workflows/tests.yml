@@ -105,9 +105,19 @@ jobs:
           EXTRAE_counters: "cpu-migrations,context-switches"
           RUSTFLAGS: "-Cinstrument-coverage"
           LLVM_PROFILE_FILE: "extrae-rs-%p-%m.profraw"
+        run: cargo test --features profiling -- --nocapture
+
+      - name: Run visualizer with coverage
+        env:
+          EXTRAE_SUFFIX: "mythreads2"
+          RUSTFLAGS: "-Cinstrument-coverage"
+          LLVM_PROFILE_FILE: "extrae-rs-%p-%m.profraw"
         run: |
-           cargo test --features profiling -- --nocapture
-           grcov . --binary-path ./target/debug/ -s . -t lcov --branch --ignore-not-existing --ignore "/*" -o ./lcov.info
+           cargo run --bin program_threads --features profiling
+           cargo run --bin visualizer TRACEDIR_mythreads2/Trace_1.bin
+
+      - name: Run grcov
+        run: grcov . --binary-path ./target/debug/ -s . -t lcov --branch --ignore-not-existing --ignore "/*" -o ./lcov.info
 
       - name: Upload coverage to Coveralls
         uses: coverallsapp/github-action@master
