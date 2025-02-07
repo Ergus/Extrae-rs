@@ -16,11 +16,14 @@ fn test_program(executable: &str)
     let stdout = String::from_utf8_lossy(&output.stdout);
 
     if !output.status.success() {
-        // Capture stdout and stderr
-        println!("stdout:\n{}", stdout);
+        #[cfg_attr(coverage, no_coverage)]
+        {
+            // Capture stdout and stderr
+            println!("stdout:\n{}", stdout);
 
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        println!("stderr\n{}", stderr);
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            println!("stderr\n{}", stderr);
+        }
     }
 
     assert!(output.status.success(), "program_procedural exited with an error");
